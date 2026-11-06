@@ -201,16 +201,20 @@
                     </label>
                 </div>
 
-                <!-- Spin Atmosphere & FX Modifiers Checkboxes -->
+                <!-- Spin Atmosphere & FX Modifiers Checkboxes (Default Collapsed) -->
                 <div class="pt-2.5 border-t border-white/10 flex flex-col gap-2">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-300 flex items-center justify-between">
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-masks-theater text-pink-400"></i> Spin Atmosphere & Drama FX:
+                    <button id="toggleDramaCollapseBtn" type="button" class="w-full flex items-center justify-between text-left group cursor-pointer focus:outline-none">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-300 flex items-center gap-1.5 group-hover:text-amber-200 transition">
+                            <i class="fa-solid fa-masks-theater text-pink-400"></i>
+                            <span>Spin Atmosphere & Drama FX:</span>
                         </span>
-                        <span class="text-[10px] text-slate-400 font-normal lowercase">(mix & match)</span>
-                    </span>
+                        <div class="flex items-center gap-1.5 text-slate-400 group-hover:text-slate-200 transition text-[11px]">
+                            <span id="dramaCollapseLabel" class="text-[10px] hidden sm:inline">(expand)</span>
+                            <i id="dramaCollapseIcon" class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200"></i>
+                        </div>
+                    </button>
 
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    <div id="dramaCheckboxesContainer" class="hidden grid-cols-2 sm:grid-cols-3 gap-2 text-xs transition-all duration-300">
                         <!-- Dramatic Mode -->
                         <label class="flex items-center gap-2 p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 cursor-pointer transition select-none group">
                             <input id="modeDramatic" type="checkbox" checked class="w-3.5 h-3.5 rounded accent-amber-500 cursor-pointer">
@@ -284,6 +288,22 @@
                             <option value="chill">☕ Lounge Groove</option>
                             <option value="suspense">🥁 Tension Pulse</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- Wheel Performance / Refresh Rate Toggle (Only applies to spin wheel canvas) -->
+                <div class="pt-2.5 border-t border-white/10 flex items-center justify-between gap-2">
+                    <span class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        <span>Wheel Refresh Rate:</span>
+                    </span>
+                    <div class="inline-flex rounded-xl p-0.5 bg-slate-900/90 border border-white/10 text-xs font-mono">
+                        <button id="fps60Btn" type="button" class="px-2.5 py-1 rounded-lg font-semibold bg-brand-600 text-white shadow-sm transition" title="Ultra smooth 60 FPS wheel rotation">
+                            60 FPS
+                        </button>
+                        <button id="fps30Btn" type="button" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition" title="Power saving / Battery saver 30 FPS wheel rotation">
+                            30 FPS
+                        </button>
                     </div>
                 </div>
             </div>
@@ -456,6 +476,29 @@
             </div>
         </section>
     </main>
+
+    <!-- Application Footer (Auto-hidden in Stage Mode) -->
+    <footer id="appFooter" class="border-t border-white/10 bg-slate-900/60 backdrop-blur-md py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-dharmachakra text-brand-400"></i>
+                <span class="font-display font-semibold text-white tracking-wide">Game of Wheel</span>
+                <span>• Interactive Physics Decision & Prize Spinner</span>
+            </div>
+
+            <div class="flex items-center gap-4 flex-wrap justify-center">
+                <button id="footerDonateBtn" type="button" class="text-emerald-400 hover:text-emerald-300 font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-heart text-rose-400"></i>
+                    <span>Tip & Support</span>
+                </button>
+                <a href="https://github.com/ryuchi311/game-of-wheel" target="_blank" rel="noopener noreferrer" class="hover:text-white transition flex items-center gap-1">
+                    <i class="fa-brands fa-github text-sm"></i>
+                    <span>GitHub</span>
+                </a>
+                <span>Made with ❤️ for games, raffles & events</span>
+            </div>
+        </div>
+    </footer>
 
     <!-- Winner Celebration Modal -->
     <div id="winnerModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-lg overflow-hidden">

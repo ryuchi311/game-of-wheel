@@ -24,13 +24,21 @@ const spinDurationInput = document.getElementById('spinDurationInput');
 const spinTimePresetBtns = document.querySelectorAll('.spin-time-preset');
 const eliminateWinnerToggle = document.getElementById('eliminateWinnerToggle');
 
-// Drama & Atmosphere Checkboxes
+// Drama & Atmosphere Checkboxes & Collapse Controls
 const modeDramatic = document.getElementById('modeDramatic');
 const modeIntense = document.getElementById('modeIntense');
 const modeThrill = document.getElementById('modeThrill');
 const modeSurprise = document.getElementById('modeSurprise');
 const modePanic = document.getElementById('modePanic');
 const modeFunny = document.getElementById('modeFunny');
+const toggleDramaCollapseBtn = document.getElementById('toggleDramaCollapseBtn');
+const dramaCheckboxesContainer = document.getElementById('dramaCheckboxesContainer');
+const dramaCollapseIcon = document.getElementById('dramaCollapseIcon');
+const dramaCollapseLabel = document.getElementById('dramaCollapseLabel');
+
+// Wheel Refresh Rate (FPS) Toggle Buttons
+const fps60Btn = document.getElementById('fps60Btn');
+const fps30Btn = document.getElementById('fps30Btn');
 
 const presetSelect = document.getElementById('presetSelect');
 const soundThemeSelect = document.getElementById('soundThemeSelect');
@@ -94,6 +102,7 @@ const modalSpinAgainBtn = document.getElementById('modalSpinAgainBtn');
 
 const donateBtn = document.getElementById('donateBtn');
 const sideDonateBtn = document.getElementById('sideDonateBtn');
+const footerDonateBtn = document.getElementById('footerDonateBtn');
 const donateModal = document.getElementById('donateModal');
 const closeDonateModalBtn = document.getElementById('closeDonateModalBtn');
 
@@ -195,7 +204,18 @@ function triggerSpin() {
     state.lastSegmentIndex = getWinningSliceIndex(state.currentAngle);
 }
 
+let lastWheelRenderTime = 0;
+
 function updatePhysics(now) {
+    // Limit wheel canvas rendering to selected wheelFps (60 or 30 FPS) while leaving everything else native
+    const fpsInterval = (state.wheelFps === 30) ? (1000 / 30) : (1000 / 60);
+    const elapsedSinceLastRender = now - lastWheelRenderTime;
+
+    if (elapsedSinceLastRender < fpsInterval - 1) {
+        requestAnimationFrame(updatePhysics);
+        return;
+    }
+    lastWheelRenderTime = now - (elapsedSinceLastRender % fpsInterval);
     if (state.isSpinning) {
         const elapsed = now - state.spinStartTime;
         let progress = Math.min(1, elapsed / state.spinDuration);
@@ -456,20 +476,39 @@ function renderOptionsList() {
             drawWheel();
         });
 
-        // Delete Option Button
+        // Delete Option Button with double-click / confirmation safeguard
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.title = 'Remove option';
         delBtn.className = 'w-8 h-8 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0';
         delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-        delBtn.addEventListener('click', () => {
+        
+        let confirmTimeout = null;
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             if (state.options.length <= 2) {
                 showValidationNotice('Minimum of 2 options required on the wheel!');
                 return;
             }
-            state.options.splice(idx, 1);
-            renderOptionsList();
-            drawWheel();
+
+            // Two-step confirmation: first click asks "Sure?", second click confirms deletion
+            if (delBtn.getAttribute('data-confirming') === 'true') {
+                clearTimeout(confirmTimeout);
+                state.options.splice(idx, 1);
+                renderOptionsList();
+                drawWheel();
+            } else {
+                delBtn.setAttribute('data-confirming', 'true');
+                delBtn.className = 'px-2 h-7 rounded-lg text-[11px] font-semibold bg-rose-600/30 text-rose-300 border border-rose-400/50 flex items-center gap-1 transition shrink-0 animate-pulse';
+                delBtn.innerHTML = '<i class="fa-solid fa-trash-can text-[10px]"></i> Sure?';
+                
+                // Reset back to normal after 2.8 seconds if not clicked again
+                confirmTimeout = setTimeout(() => {
+                    delBtn.removeAttribute('data-confirming');
+                    delBtn.className = 'w-8 h-8 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0';
+                    delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                }, 2800);
+            }
         });
 
         row.appendChild(colorInput);
@@ -573,10 +612,24 @@ function renderHistoryList() {
             </button>
         `;
         const delEntryBtn = card.querySelector('[data-del-history]');
-        delEntryBtn.addEventListener('click', () => {
-            state.history.splice(idx, 1);
-            saveStateToStorage();
-            renderHistoryList();
+        let historyConfirmTimeout = null;
+        delEntryBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (delEntryBtn.getAttribute('data-confirming') === 'true') {
+                clearTimeout(historyConfirmTimeout);
+                state.history.splice(idx, 1);
+                saveStateToStorage();
+                renderHistoryList();
+            } else {
+                delEntryBtn.setAttribute('data-confirming', 'true');
+                delEntryBtn.className = 'px-1.5 h-6 rounded-md text-[10px] font-bold bg-rose-600/30 text-rose-300 border border-rose-400/50 flex items-center gap-1 transition shrink-0 animate-pulse';
+                delEntryBtn.innerHTML = 'Sure?';
+                historyConfirmTimeout = setTimeout(() => {
+                    delEntryBtn.removeAttribute('data-confirming');
+                    delEntryBtn.className = 'w-7 h-7 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0';
+                    delEntryBtn.innerHTML = '<i class="fa-solid fa-xmark text-xs"></i>';
+                }, 2800);
+            }
         });
         historyListContainer.appendChild(card);
     });
@@ -690,6 +743,30 @@ addOptionForm.addEventListener('submit', (e) => {
     newOptionInput.value = '';
 });
 
+// Wheel Refresh Rate (FPS) Selector Controls
+function setWheelFps(fps) {
+    state.wheelFps = fps;
+    if (fps === 30) {
+        if (fps30Btn) {
+            fps30Btn.className = 'px-2.5 py-1 rounded-lg font-semibold bg-brand-600 text-white shadow-sm transition';
+        }
+        if (fps60Btn) {
+            fps60Btn.className = 'px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition';
+        }
+    } else {
+        state.wheelFps = 60;
+        if (fps60Btn) {
+            fps60Btn.className = 'px-2.5 py-1 rounded-lg font-semibold bg-brand-600 text-white shadow-sm transition';
+        }
+        if (fps30Btn) {
+            fps30Btn.className = 'px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition';
+        }
+    }
+}
+
+if (fps60Btn) fps60Btn.addEventListener('click', () => setWheelFps(60));
+if (fps30Btn) fps30Btn.addEventListener('click', () => setWheelFps(30));
+
 // Bulk Paste Drawer Controls
 function toggleBulkDrawer(forceShow) {
     const isHidden = bulkPasteDrawer.classList.contains('hidden');
@@ -702,6 +779,24 @@ function toggleBulkDrawer(forceShow) {
         bulkPasteDrawer.classList.add('hidden');
         bulkPasteDrawer.classList.remove('flex');
     }
+}
+
+// Drama & Atmosphere Checkboxes Collapse / Expand Toggle
+if (toggleDramaCollapseBtn && dramaCheckboxesContainer) {
+    toggleDramaCollapseBtn.addEventListener('click', () => {
+        const isCollapsed = dramaCheckboxesContainer.classList.contains('hidden');
+        if (isCollapsed) {
+            dramaCheckboxesContainer.classList.remove('hidden');
+            dramaCheckboxesContainer.classList.add('grid');
+            if (dramaCollapseIcon) dramaCollapseIcon.className = 'fa-solid fa-chevron-up text-[10px] transition-transform duration-200';
+            if (dramaCollapseLabel) dramaCollapseLabel.textContent = '(collapse)';
+        } else {
+            dramaCheckboxesContainer.classList.add('hidden');
+            dramaCheckboxesContainer.classList.remove('grid');
+            if (dramaCollapseIcon) dramaCollapseIcon.className = 'fa-solid fa-chevron-down text-[10px] transition-transform duration-200';
+            if (dramaCollapseLabel) dramaCollapseLabel.textContent = '(expand)';
+        }
+    });
 }
 
 bulkPasteToggleBtn.addEventListener('click', () => toggleBulkDrawer());
@@ -938,6 +1033,7 @@ function closeDonateModal() {
 
 if (donateBtn) donateBtn.addEventListener('click', openDonateModal);
 if (sideDonateBtn) sideDonateBtn.addEventListener('click', openDonateModal);
+if (footerDonateBtn) footerDonateBtn.addEventListener('click', openDonateModal);
 if (closeDonateModalBtn) closeDonateModalBtn.addEventListener('click', closeDonateModal);
 if (donateModal) {
     donateModal.addEventListener('click', (e) => {
@@ -945,14 +1041,30 @@ if (donateModal) {
     });
 }
 
+let modalRemoveTimeout = null;
 modalRemoveWinnerBtn.addEventListener('click', () => {
-    if (state.lastWinnerIndex !== null && state.options.length > 2) {
-        state.options.splice(state.lastWinnerIndex, 1);
-        state.lastWinnerIndex = null;
-        renderOptionsList();
-        drawWheel();
+    // Two-step confirmation on modal removal to prevent accidental taps
+    if (modalRemoveWinnerBtn.getAttribute('data-confirming') === 'true') {
+        clearTimeout(modalRemoveTimeout);
+        modalRemoveWinnerBtn.removeAttribute('data-confirming');
+        modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-ban text-rose-400"></i><span>Remove Option</span>';
+        if (state.lastWinnerIndex !== null && state.options.length > 2) {
+            state.options.splice(state.lastWinnerIndex, 1);
+            state.lastWinnerIndex = null;
+            renderOptionsList();
+            drawWheel();
+        }
+        closeWinnerModal();
+    } else {
+        modalRemoveWinnerBtn.setAttribute('data-confirming', 'true');
+        modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i><span>Click again to confirm</span>';
+        modalRemoveWinnerBtn.classList.add('animate-pulse', 'border-rose-400/80');
+        modalRemoveTimeout = setTimeout(() => {
+            modalRemoveWinnerBtn.removeAttribute('data-confirming');
+            modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-ban text-rose-400"></i><span>Remove Option</span>';
+            modalRemoveWinnerBtn.classList.remove('animate-pulse', 'border-rose-400/80');
+        }, 3200);
     }
-    closeWinnerModal();
 });
 
 // Window Resize Listener

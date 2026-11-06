@@ -33,6 +33,9 @@ export const state = {
     revealStartTime: 0,
     suspenseIntensity: 0,  // 0..1 intensity during the final crawl
 
+    // Wheel Canvas Target Refresh Rate: 60 | 30
+    wheelFps: 60,
+
     // Spin Modifiers & Atmosphere Checkboxes
     modes: {
         dramatic: true,    // Slow-motion heartbeat crawl & spotlight zoom

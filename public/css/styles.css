@@ -145,7 +145,8 @@ body {
 
 /* Stage / Big Screen Presentation Mode */
 body.stage-mode #rightSidebarSection,
-body.stage-mode #spinControlsCard {
+body.stage-mode #spinControlsCard,
+body.stage-mode #appFooter {
     display: none !important;
 }
 body.stage-mode #mainGrid {
