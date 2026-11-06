@@ -44,25 +44,27 @@
 <body class="antialiased selection:bg-brand-500 selection:text-white flex flex-col min-h-screen">
 
     <!-- Top Navigation Bar -->
-    <header class="border-b border-white/10 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
+    <header class="border-b border-white/10 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            
+            <!-- Brand / Logo Area -->
+            <div class="flex items-center gap-3 shrink-0">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-violet-600 flex items-center justify-center shadow-lg shadow-pink-500/20">
                     <i class="fa-solid fa-dharmachakra text-white text-xl animate-spin" style="animation-duration: 12s;"></i>
                 </div>
                 <div>
-                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-300 via-pink-300 to-violet-300 bg-clip-text text-transparent">
+                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-300 via-pink-300 to-violet-300 bg-clip-text text-transparent leading-none">
                         GAME OF WHEEL
                     </h1>
-                    <p class="text-[11px] text-slate-400 hidden sm:block -mt-1">Interactive Physics Prize & Decision Spinner</p>
+                    <p class="text-[11px] text-slate-400 hidden md:block mt-0.5">Physics Prize & Decision Spinner</p>
                 </div>
             </div>
 
-            <!-- Controls & Presets -->
+            <!-- Global Action Toolbar -->
             <div class="flex items-center gap-2 sm:gap-2.5">
-                <!-- Preset Selector -->
+                <!-- Preset Options Selector -->
                 <div class="relative">
-                    <select id="presetSelect" aria-label="Load Preset Options" class="bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 text-xs sm:text-sm rounded-xl px-2.5 sm:px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer">
+                    <select id="presetSelect" aria-label="Load Preset Options" class="bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 text-xs sm:text-sm rounded-xl px-2.5 sm:px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer" title="Load Ready-made Wheel Presets">
                         <option value="" disabled selected>✨ Load Preset...</option>
                         <option value="prizes">🎁 Game Show Prizes</option>
                         <option value="dinner">🍕 What's for Dinner?</option>
@@ -71,47 +73,25 @@
                     </select>
                 </div>
 
-                <!-- Sound Tone Selector (Top Nav) -->
-                <div class="relative hidden md:block">
-                    <select id="soundThemeSelect" aria-label="Select Sound Tone" class="bg-slate-800/90 hover:bg-slate-700/90 text-amber-300 text-xs sm:text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer" title="Choose Tick & Fanfare Tone">
-                        <option value="arcade" selected>🎵 Tone: Arcade Synth</option>
-                        <option value="casino">🎰 Tone: Casino Royal</option>
-                        <option value="marimba">🎶 Tone: Tropical Marimba</option>
-                        <option value="cyber">⚡ Tone: Cyber Sci-Fi</option>
-                        <option value="retro">👾 Tone: 8-Bit Retro</option>
-                        <option value="crystal">💎 Tone: Crystal Bell</option>
-                    </select>
-                </div>
-
-                <!-- Background Music Track Selector (Top Nav) -->
-                <div class="relative hidden lg:block">
-                    <select id="bgmTrackSelect" aria-label="Select Background Music" class="bg-slate-800/90 hover:bg-slate-700/90 text-pink-300 text-xs sm:text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 transition cursor-pointer" title="Choose Background Music Style">
-                        <option value="showtime" selected>🎷 BGM: Game Show Funk</option>
-                        <option value="synthwave">🌆 BGM: Neon Synthwave</option>
-                        <option value="chill">☕ BGM: Lounge Groove</option>
-                        <option value="suspense">🥁 BGM: Tension Pulse</option>
-                    </select>
-                </div>
-
-                <!-- Background Music Play/Pause Button -->
-                <button id="bgmToggleBtn" type="button" class="h-10 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-white/10 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold" title="Toggle Background Music">
+                <!-- Background Music Play/Pause Toggle -->
+                <button id="bgmToggleBtn" type="button" class="h-10 px-2.5 sm:px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-white/10 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold" title="Toggle Background Music">
                     <i id="bgmIcon" class="fa-solid fa-music"></i>
-                    <span id="bgmStatusLabel" class="hidden sm:inline">BGM Off</span>
+                    <span id="bgmStatusLabel" class="hidden md:inline">BGM Off</span>
                 </button>
 
                 <!-- Sound Effects Mute Toggle Button -->
-                <button id="soundToggleBtn" type="button" class="w-10 h-10 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-400 border border-white/10 flex items-center justify-center transition shadow-sm" title="Toggle Sound Effects">
+                <button id="soundToggleBtn" type="button" class="w-10 h-10 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-400 border border-white/10 flex items-center justify-center transition shadow-sm shrink-0" title="Toggle Sound Effects">
                     <i id="soundIcon" class="fa-solid fa-volume-high"></i>
                 </button>
 
-                <!-- Tip / Donate Button -->
-                <button id="donateBtn" type="button" class="h-10 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition" title="Support Developer / Send Tip">
+                <!-- Tip / Support Developer Button -->
+                <button id="donateBtn" type="button" class="h-10 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition shrink-0" title="Support Developer / Send Tip">
                     <i class="fa-solid fa-heart text-rose-300 animate-pulse"></i>
                     <span class="hidden sm:inline">Tip & Support</span>
                 </button>
 
                 <!-- Stage Big-Screen Fullscreen Button -->
-                <button id="stageModeBtn" type="button" class="h-10 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-pink-500/25 transition" title="Toggle Stage Big-Screen Fullscreen (or press F)">
+                <button id="stageModeBtn" type="button" class="h-10 px-3 sm:px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-pink-500/25 transition shrink-0" title="Toggle Stage Big-Screen Fullscreen (or press F)">
                     <i id="stageModeIcon" class="fa-solid fa-expand"></i>
                     <span id="stageModeText" class="hidden sm:inline">Stage Mode</span>
                 </button>

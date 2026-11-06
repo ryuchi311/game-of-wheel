@@ -680,7 +680,7 @@ presetSelect.addEventListener('change', (e) => {
     }
 });
 
-// Sound Theme Selector & Preview Chime (synced between Top Nav & Control Panel)
+// Sound Theme Selector & Preview Chime
 function setSoundTheme(theme) {
     state.soundTheme = theme;
     if (soundThemeSelect) soundThemeSelect.value = theme;
@@ -690,33 +690,39 @@ function setSoundTheme(theme) {
     });
 }
 
-soundThemeSelect.addEventListener('change', (e) => setSoundTheme(e.target.value));
-panelSoundThemeSelect.addEventListener('change', (e) => setSoundTheme(e.target.value));
+if (soundThemeSelect) soundThemeSelect.addEventListener('change', (e) => setSoundTheme(e.target.value));
+if (panelSoundThemeSelect) panelSoundThemeSelect.addEventListener('change', (e) => setSoundTheme(e.target.value));
 
-// Background Music Controls (synced between Top Nav & Control Panel)
+// Background Music Controls (synced with Sound Settings card)
 function updateBgmUI() {
     if (state.bgmEnabled) {
-        bgmToggleBtn.className = 'h-10 px-3 rounded-xl bg-pink-600/25 hover:bg-pink-600/40 text-pink-300 border border-pink-400/40 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold';
-        bgmIcon.className = 'fa-solid fa-compact-disc animate-spin';
-        bgmStatusLabel.textContent = 'BGM On';
-        panelBgmToggleIcon.className = 'fa-solid fa-pause text-[9px]';
-        panelBgmToggleText.textContent = 'Stop';
-        panelBgmTrackSelect.value = state.bgmTrack;
-        bgmTrackSelect.value = state.bgmTrack;
+        if (bgmToggleBtn) {
+            bgmToggleBtn.className = 'h-10 px-2.5 sm:px-3 rounded-xl bg-pink-600/25 hover:bg-pink-600/40 text-pink-300 border border-pink-400/40 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold';
+            if (bgmIcon) bgmIcon.className = 'fa-solid fa-compact-disc animate-spin';
+            if (bgmStatusLabel) bgmStatusLabel.textContent = 'BGM On';
+        }
+        if (panelBgmToggleIcon) panelBgmToggleIcon.className = 'fa-solid fa-pause text-[9px]';
+        if (panelBgmToggleText) panelBgmToggleText.textContent = 'Stop';
+        if (panelBgmTrackSelect) panelBgmTrackSelect.value = state.bgmTrack;
+        if (bgmTrackSelect) bgmTrackSelect.value = state.bgmTrack;
     } else {
-        bgmToggleBtn.className = 'h-10 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-white/10 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold';
-        bgmIcon.className = 'fa-solid fa-music';
-        bgmStatusLabel.textContent = 'BGM Off';
-        panelBgmToggleIcon.className = 'fa-solid fa-play text-[9px]';
-        panelBgmToggleText.textContent = 'Play';
-        panelBgmTrackSelect.value = 'off';
+        if (bgmToggleBtn) {
+            bgmToggleBtn.className = 'h-10 px-2.5 sm:px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-white/10 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold';
+            if (bgmIcon) bgmIcon.className = 'fa-solid fa-music';
+            if (bgmStatusLabel) bgmStatusLabel.textContent = 'BGM Off';
+        }
+        if (panelBgmToggleIcon) panelBgmToggleIcon.className = 'fa-solid fa-play text-[9px]';
+        if (panelBgmToggleText) panelBgmToggleText.textContent = 'Play';
+        if (panelBgmTrackSelect) panelBgmTrackSelect.value = 'off';
     }
 }
 
 function toggleBackgroundMusic(forceState) {
     state.bgmEnabled = typeof forceState === 'boolean' ? forceState : !state.bgmEnabled;
     if (state.bgmEnabled && (!state.bgmTrack || state.bgmTrack === 'off')) {
-        state.bgmTrack = bgmTrackSelect.value || 'showtime';
+        state.bgmTrack = (panelBgmTrackSelect && panelBgmTrackSelect.value !== 'off')
+            ? panelBgmTrackSelect.value
+            : 'showtime';
     }
     updateBgmUI();
     if (state.bgmEnabled) {
@@ -726,23 +732,27 @@ function toggleBackgroundMusic(forceState) {
     }
 }
 
-bgmToggleBtn.addEventListener('click', () => toggleBackgroundMusic());
-panelBgmToggleBtn.addEventListener('click', () => toggleBackgroundMusic());
+if (bgmToggleBtn) bgmToggleBtn.addEventListener('click', () => toggleBackgroundMusic());
+if (panelBgmToggleBtn) panelBgmToggleBtn.addEventListener('click', () => toggleBackgroundMusic());
 
-bgmTrackSelect.addEventListener('change', (e) => {
-    state.bgmTrack = e.target.value;
-    toggleBackgroundMusic(true);
-});
-
-panelBgmTrackSelect.addEventListener('change', (e) => {
-    const val = e.target.value;
-    if (val === 'off') {
-        toggleBackgroundMusic(false);
-    } else {
-        state.bgmTrack = val;
+if (bgmTrackSelect) {
+    bgmTrackSelect.addEventListener('change', (e) => {
+        state.bgmTrack = e.target.value;
         toggleBackgroundMusic(true);
-    }
-});
+    });
+}
+
+if (panelBgmTrackSelect) {
+    panelBgmTrackSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'off') {
+            toggleBackgroundMusic(false);
+        } else {
+            state.bgmTrack = val;
+            toggleBackgroundMusic(true);
+        }
+    });
+}
 
 // Sound Mute Toggle
 soundToggleBtn.addEventListener('click', () => {
