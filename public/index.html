@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game of Wheel - Interactive Prize Spinner</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for procedural sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti for celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            400: '#a78bfa',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            900: '#1e1b4b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom Application Styles -->
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="antialiased selection:bg-brand-500 selection:text-white flex flex-col min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-white/10 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-violet-600 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                    <i class="fa-solid fa-dharmachakra text-white text-xl animate-spin" style="animation-duration: 12s;"></i>
+                </div>
+                <div>
+                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-wide bg-gradient-to-r from-amber-300 via-pink-300 to-violet-300 bg-clip-text text-transparent">
+                        GAME OF WHEEL
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block -mt-1">Interactive Physics Prize & Decision Spinner</p>
+                </div>
+            </div>
+
+            <!-- Controls & Presets -->
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <!-- Preset Selector -->
+                <div class="relative">
+                    <select id="presetSelect" aria-label="Load Preset Options" class="bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 text-xs sm:text-sm rounded-xl px-2.5 sm:px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer">
+                        <option value="" disabled selected>✨ Load Preset...</option>
+                        <option value="prizes">🎁 Game Show Prizes</option>
+                        <option value="dinner">🍕 What's for Dinner?</option>
+                        <option value="truth">🎲 Party Dare / Activity</option>
+                        <option value="numbers">🔢 Lucky Numbers (1-8)</option>
+                    </select>
+                </div>
+
+                <!-- Sound Tone Selector (Top Nav) -->
+                <div class="relative hidden md:block">
+                    <select id="soundThemeSelect" aria-label="Select Sound Tone" class="bg-slate-800/90 hover:bg-slate-700/90 text-amber-300 text-xs sm:text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer" title="Choose Tick & Fanfare Tone">
+                        <option value="arcade" selected>🎵 Tone: Arcade Synth</option>
+                        <option value="casino">🎰 Tone: Casino Royal</option>
+                        <option value="marimba">🎶 Tone: Tropical Marimba</option>
+                        <option value="cyber">⚡ Tone: Cyber Sci-Fi</option>
+                        <option value="retro">👾 Tone: 8-Bit Retro</option>
+                        <option value="crystal">💎 Tone: Crystal Bell</option>
+                    </select>
+                </div>
+
+                <!-- Background Music Track Selector (Top Nav) -->
+                <div class="relative hidden lg:block">
+                    <select id="bgmTrackSelect" aria-label="Select Background Music" class="bg-slate-800/90 hover:bg-slate-700/90 text-pink-300 text-xs sm:text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500 transition cursor-pointer" title="Choose Background Music Style">
+                        <option value="showtime" selected>🎷 BGM: Game Show Funk</option>
+                        <option value="synthwave">🌆 BGM: Neon Synthwave</option>
+                        <option value="chill">☕ BGM: Lounge Groove</option>
+                        <option value="suspense">🥁 BGM: Tension Pulse</option>
+                    </select>
+                </div>
+
+                <!-- Background Music Play/Pause Button -->
+                <button id="bgmToggleBtn" type="button" class="h-10 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-white/10 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold" title="Toggle Background Music">
+                    <i id="bgmIcon" class="fa-solid fa-music"></i>
+                    <span id="bgmStatusLabel" class="hidden sm:inline">BGM Off</span>
+                </button>
+
+                <!-- Sound Effects Mute Toggle Button -->
+                <button id="soundToggleBtn" type="button" class="w-10 h-10 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-400 border border-white/10 flex items-center justify-center transition shadow-sm" title="Toggle Sound Effects">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+
+                <!-- Stage Big-Screen Fullscreen Button -->
+                <button id="stageModeBtn" type="button" class="h-10 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-pink-500/25 transition" title="Toggle Stage Big-Screen Fullscreen (or press F)">
+                    <i id="stageModeIcon" class="fa-solid fa-expand"></i>
+                    <span id="stageModeText" class="hidden sm:inline">Stage Mode</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <main id="mainGrid" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Left/Center Column: The Spinning Wheel (7 Cols on Desktop) -->
+        <section id="wheelSection" class="lg:col-span-7 flex flex-col items-center justify-center">
+            
+            <!-- Live Status Banner -->
+            <div class="mb-3 flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/80 border border-white/10 text-xs sm:text-sm text-slate-300 shadow-inner">
+                <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="currentSliceLabel" class="font-medium tracking-wide">Ready to spin! Click the wheel or press SPIN.</span>
+            </div>
+
+            <!-- Responsive Canvas Container -->
+            <div id="wheelWrapper" class="relative w-full max-w-[500px] aspect-square flex items-center justify-center wheel-glow select-none my-1">
+                <canvas id="wheelCanvas" class="w-full h-full cursor-pointer transition-transform duration-200 active:scale-[0.99]" title="Click or swipe to spin!"></canvas>
+                
+                <!-- Center Overlay Spin Trigger -->
+                <button id="centerHubBtn" aria-label="Spin the wheel" class="absolute w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-b from-slate-800 to-slate-950 border-4 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)] flex flex-col items-center justify-center group hover:scale-105 active:scale-95 transition-transform">
+                    <span class="font-display font-bold text-xs sm:text-sm tracking-wider text-amber-300 group-hover:text-white transition">SPIN</span>
+                    <i class="fa-solid fa-rotate text-[10px] text-amber-400/80 group-hover:rotate-180 transition-transform duration-500"></i>
+                </button>
+            </div>
+
+            <!-- Primary Action Bar Below Wheel -->
+            <div class="w-full max-w-md mt-5 flex flex-col sm:flex-row items-center gap-4">
+                <button id="mainSpinBtn" class="spin-btn-3d w-full py-4 px-8 rounded-2xl font-display font-bold text-xl sm:text-2xl tracking-wider text-white flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>SPIN THE WHEEL!</span>
+                </button>
+            </div>
+
+            <!-- Stage Mode Live Winners Ticker (Visible only in Stage Fullscreen Mode) -->
+            <div id="stageWinnersDock" class="hidden w-full max-w-3xl mt-4 glass-panel rounded-2xl px-4 py-2.5 items-center justify-between gap-3">
+                <span class="text-xs font-display font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-crown"></i> Stage Winners:
+                </span>
+                <div id="stageWinnersList" class="flex-1 flex items-center gap-2 overflow-x-auto py-0.5">
+                    <span class="text-xs text-slate-400 italic">Press SPACE or click the wheel to spin!</span>
+                </div>
+                <span class="text-[11px] text-slate-400 font-mono hidden sm:inline shrink-0">[SPACE] Spin • [ESC] Exit</span>
+            </div>
+
+            <!-- Spin Power / Duration & Auto-remove Controls -->
+            <div id="spinControlsCard" class="w-full max-w-md mt-6 glass-panel rounded-2xl p-4 flex flex-col gap-3.5 text-xs sm:text-sm text-slate-300">
+                <div class="flex items-center justify-between gap-3">
+                    <label for="spinDurationRange" class="font-medium whitespace-nowrap flex items-center gap-1.5">
+                        <i class="fa-solid fa-gauge-high text-brand-400"></i> Spin Time:
+                    </label>
+                    <input id="spinDurationRange" type="range" min="3" max="60" value="8" step="1" class="w-full accent-brand-500 cursor-pointer">
+                    <div class="flex items-center gap-1 bg-slate-900/90 border border-white/15 focus-within:border-brand-400 rounded-xl px-2.5 py-1 shrink-0">
+                        <input
+                            id="spinDurationInput"
+                            type="number"
+                            min="1"
+                            max="300"
+                            value="8"
+                            aria-label="Custom spin duration in seconds"
+                            class="w-11 bg-transparent font-mono font-semibold text-amber-300 text-right focus:outline-none"
+                        >
+                        <span class="text-xs text-slate-400 font-mono">s</span>
+                    </div>
+                </div>
+
+                <!-- Quick Preset Duration Pills & Auto-Remove Toggle -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[11px] text-slate-400 mr-0.5">Quick:</span>
+                        <button type="button" data-spin-time="5" class="spin-time-preset px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs font-mono transition">5s</button>
+                        <button type="button" data-spin-time="10" class="spin-time-preset px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs font-mono transition">10s</button>
+                        <button type="button" data-spin-time="20" class="spin-time-preset px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs font-mono transition">20s</button>
+                        <button type="button" data-spin-time="30" class="spin-time-preset px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs font-mono transition">30s</button>
+                        <button type="button" data-spin-time="60" class="spin-time-preset px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs font-mono transition">60s</button>
+                    </div>
+
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input id="eliminateWinnerToggle" type="checkbox" class="w-4 h-4 rounded accent-pink-500 cursor-pointer">
+                        <span class="text-slate-300 hover:text-white transition text-xs">Remove winner</span>
+                    </label>
+                </div>
+
+                <!-- Optional Sound Tone & Background Music Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2.5 border-t border-white/10">
+                    <!-- Spin Tone Selector -->
+                    <div class="flex flex-col gap-1">
+                        <label for="panelSoundThemeSelect" class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Spin Sound Tone:
+                        </label>
+                        <select id="panelSoundThemeSelect" class="bg-slate-900/90 hover:bg-slate-800 text-amber-300 text-xs rounded-xl px-2.5 py-2 border border-white/15 focus:outline-none focus:border-brand-400 transition cursor-pointer">
+                            <option value="arcade" selected>🎵 Arcade Synth</option>
+                            <option value="casino">🎰 Casino Royal</option>
+                            <option value="marimba">🎶 Tropical Marimba</option>
+                            <option value="cyber">⚡ Cyber Sci-Fi</option>
+                            <option value="retro">👾 8-Bit Retro</option>
+                            <option value="crystal">💎 Crystal Bell</option>
+                        </select>
+                    </div>
+
+                    <!-- Background Music Selector + Play/Stop -->
+                    <div class="flex flex-col gap-1">
+                        <label for="panelBgmTrackSelect" class="text-[11px] text-slate-400 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-compact-disc text-pink-400"></i> Background Music:
+                            </span>
+                            <button id="panelBgmToggleBtn" type="button" class="text-[11px] font-semibold text-pink-400 hover:text-pink-300 transition flex items-center gap-1">
+                                <i id="panelBgmToggleIcon" class="fa-solid fa-play text-[9px]"></i>
+                                <span id="panelBgmToggleText">Play</span>
+                            </button>
+                        </label>
+                        <select id="panelBgmTrackSelect" class="bg-slate-900/90 hover:bg-slate-800 text-pink-300 text-xs rounded-xl px-2.5 py-2 border border-white/15 focus:outline-none focus:border-pink-400 transition cursor-pointer">
+                            <option value="off" selected>🔇 Music Off</option>
+                            <option value="showtime">🎷 Game Show Funk</option>
+                            <option value="synthwave">🌆 Neon Synthwave</option>
+                            <option value="chill">☕ Lounge Groove</option>
+                            <option value="suspense">🥁 Tension Pulse</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Options Manager & History Log (5 Cols on Desktop) -->
+        <section id="rightSidebarSection" class="lg:col-span-5 flex flex-col gap-6 w-full">
+            
+            <!-- Tabbed Card for Slices & History -->
+            <div class="glass-panel rounded-3xl overflow-hidden flex flex-col h-[560px]">
+                
+                <!-- Tab Headers -->
+                <div class="grid grid-cols-2 border-b border-white/10 bg-slate-900/50 p-1.5 gap-1.5">
+                    <button id="tabOptionsBtn" class="py-2.5 px-4 rounded-2xl font-display font-semibold text-sm flex items-center justify-center gap-2 bg-brand-600 text-white shadow-lg transition">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Wheel Options</span>
+                        <span id="optionCountBadge" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-black/30 text-amber-300">8</span>
+                    </button>
+                    <button id="tabHistoryBtn" class="py-2.5 px-4 rounded-2xl font-display font-semibold text-sm flex items-center justify-center gap-2 text-slate-400 hover:text-white hover:bg-white/5 transition">
+                        <i class="fa-solid fa-trophy text-amber-400"></i>
+                        <span>Winners Log</span>
+                        <span id="historyCountBadge" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-white/10 text-slate-300">0</span>
+                    </button>
+                </div>
+
+                <!-- TAB 1: Wheel Options Editor -->
+                <div id="optionsTabPanel" class="flex-1 flex flex-col p-4 sm:p-5 overflow-hidden">
+                    
+                    <!-- Add New Option Form -->
+                    <form id="addOptionForm" class="flex gap-2 mb-4">
+                        <div class="relative flex-1">
+                            <input 
+                                id="newOptionInput" 
+                                type="text" 
+                                maxlength="40"
+                                placeholder="Add a prize, name, or option..." 
+                                class="w-full bg-slate-900/90 border border-white/15 focus:border-brand-400 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition"
+                            >
+                        </div>
+                        <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-pink-600 hover:from-brand-500 hover:to-pink-500 text-white font-semibold text-sm flex items-center gap-1.5 shadow-lg shadow-brand-600/25 transition shrink-0">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add</span>
+                        </button>
+                    </form>
+
+                    <!-- Quick Action Toolbar -->
+                    <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/10 text-xs flex-wrap">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <button id="bulkPasteToggleBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-brand-600/25 hover:bg-brand-600/40 text-brand-300 hover:text-white border border-brand-400/30 flex items-center gap-1.5 transition font-medium" title="Paste multiple names at once">
+                                <i class="fa-solid fa-paste text-amber-400"></i> Bulk Paste
+                            </button>
+                            <button id="shuffleOptionsBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 flex items-center gap-1.5 transition" title="Shuffle order">
+                                <i class="fa-solid fa-shuffle text-brand-400"></i> Shuffle
+                            </button>
+                            <button id="sortOptionsBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 flex items-center gap-1.5 transition" title="Sort A-Z">
+                                <i class="fa-solid fa-arrow-down-a-z text-pink-400"></i> Sort
+                            </button>
+                        </div>
+                        <button id="resetOptionsBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800/70 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-white/10 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
+
+                    <!-- Collapsible Bulk Paste Drawer -->
+                    <div id="bulkPasteDrawer" class="hidden mb-3 p-3 rounded-2xl bg-slate-900/95 border border-brand-500/40 shadow-inner flex-col gap-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-brand-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-users-viewfinder text-amber-400"></i>
+                                Paste Bulk Names <span class="text-slate-400 font-normal">(one per line or comma-separated)</span>
+                            </span>
+                            <button id="closeBulkDrawerBtn" type="button" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-white/10 transition" title="Close">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <textarea
+                            id="bulkNamesTextarea"
+                            rows="5"
+                            placeholder="Alice&#10;Bob&#10;Charlie&#10;Diana..."
+                            class="w-full bg-slate-950/90 border border-white/15 focus:border-brand-400 rounded-xl p-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition resize-none"
+                        ></textarea>
+                        <div class="flex items-center justify-between gap-2">
+                            <span id="bulkCountPreview" class="text-[11px] text-slate-400">0 names detected</span>
+                            <div class="flex items-center gap-2">
+                                <button id="bulkAppendBtn" type="button" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-circle-plus text-emerald-400"></i> Add to Wheel
+                                </button>
+                                <button id="bulkReplaceBtn" type="button" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-pink-600 hover:from-brand-500 hover:to-pink-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-brand-600/25 transition">
+                                    <i class="fa-solid fa-arrows-rotate"></i> Replace All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Validation / Minimum Notice -->
+                    <div id="validationToast" class="hidden mb-3 px-3 py-2 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                        <span id="validationToastText">Wheel needs at least 2 options to spin!</span>
+                    </div>
+
+                    <!-- Scrollable Options List -->
+                    <div id="optionsListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                        <!-- Dynamically populated via JS -->
+                    </div>
+                </div>
+
+                <!-- TAB 2: Spin History & Winners Log -->
+                <div id="historyTabPanel" class="hidden flex-1 flex flex-col p-4 sm:p-5 overflow-hidden">
+                    <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/10 flex-wrap">
+                        <span class="text-xs text-slate-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-floppy-disk text-emerald-400"></i> Auto-saved winners
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <button id="copyHistoryBtn" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-white/10 transition flex items-center gap-1" title="Copy winners list to clipboard">
+                                <i class="fa-solid fa-copy text-brand-400"></i> Copy
+                            </button>
+                            <button id="downloadHistoryBtn" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-white/10 transition flex items-center gap-1" title="Download winners as CSV">
+                                <i class="fa-solid fa-download text-emerald-400"></i> CSV
+                            </button>
+                            <button id="clearHistoryBtn" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-950 text-xs text-slate-400 hover:text-rose-300 border border-white/10 transition flex items-center gap-1" title="Clear all recorded winners">
+                                <i class="fa-solid fa-trash-can"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Top Winners Leaderboard Summary -->
+                    <div id="leaderboardContainer" class="hidden mb-3 p-2.5 rounded-xl bg-slate-900/90 border border-amber-400/25">
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-amber-300 mb-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-ranking-star"></i> Win Count Summary
+                        </p>
+                        <div id="leaderboardPills" class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto"></div>
+                    </div>
+
+                    <div id="historyListContainer" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                        <!-- Dynamically populated via JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Always-Visible Recent Winners Strip Below Card -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-display font-semibold tracking-wide text-amber-300 flex items-center gap-2">
+                        <i class="fa-solid fa-crown"></i>
+                        <span>SAVED SPIN WINNERS</span>
+                    </span>
+                    <button id="viewAllWinnersBtn" type="button" class="text-[11px] text-brand-400 hover:text-brand-300 font-medium transition">
+                        View Full Log →
+                    </button>
+                </div>
+                <div id="recentWinnersStrip" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                    <span class="text-xs text-slate-500 italic">No winners yet — spin the wheel!</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Winner Celebration Modal -->
+    <div id="winnerModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-lg overflow-hidden">
+        
+        <!-- Rotating Golden Sunburst & Ambient Aura Behind Card -->
+        <div class="winner-sunburst"></div>
+        <div id="modalAmbientGlow" class="absolute w-[480px] h-[480px] rounded-full blur-[110px] opacity-45 pointer-events-none transition-colors duration-500" style="background-color: #f59e0b;"></div>
+
+        <!-- Main Celebration Card -->
+        <div class="glass-panel animate-modal-pop max-w-lg w-full rounded-[2rem] p-6 sm:p-9 text-center relative border-2 border-amber-400/60 shadow-[0_0_90px_rgba(245,158,11,0.45)] overflow-hidden">
+            
+            <!-- Top Decorative Corner Sparkles -->
+            <div class="absolute -top-12 -left-12 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="absolute -bottom-12 -right-12 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
+            <!-- Close Button -->
+            <button id="closeModalBtn" aria-label="Close Winner Modal" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 flex items-center justify-center transition z-10">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- Floating Trophy with Pulsing Ring & Orbiting Stars -->
+            <div class="relative w-24 h-24 mx-auto mb-5 flex items-center justify-center">
+                <i class="fa-solid fa-star text-amber-300 text-sm absolute -top-2 -left-3 animate-ping" style="animation-duration: 1.8s;"></i>
+                <i class="fa-solid fa-wand-magic-sparkles text-pink-400 text-base absolute -top-1 -right-4 animate-bounce"></i>
+                <i class="fa-solid fa-star text-yellow-200 text-xs absolute -bottom-1 -left-4 animate-pulse"></i>
+                <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-yellow-300 via-amber-500 to-pink-500 p-0.5 shadow-[0_0_40px_rgba(245,158,11,0.6)] animate-trophy-float trophy-ring-pulse relative flex items-center justify-center">
+                    <div class="w-full h-full rounded-[1.4rem] bg-gradient-to-br from-amber-400 via-orange-500 to-pink-600 flex items-center justify-center">
+                        <i class="fa-solid fa-trophy text-5xl text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.4)]"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jackpot Header Badge -->
+            <div class="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-display font-bold uppercase tracking-[0.2em] mb-2 shadow-sm">
+                <i class="fa-solid fa-crown text-amber-400"></i>
+                <span>WE HAVE A WINNER!</span>
+                <i class="fa-solid fa-crown text-amber-400"></i>
+            </div>
+            
+            <!-- Winning Prize / Name Banner with Shimmer Sweep & Neon Frame -->
+            <div id="modalWinnerBanner" class="winner-banner-shimmer relative overflow-hidden my-4 py-6 px-5 rounded-3xl border-2 border-white/40 shadow-[0_12px_35px_rgba(0,0,0,0.45)] transition-all" style="background-color: #7c3aed;">
+                <h2 id="modalWinnerText" class="animate-winner-text font-display text-3xl sm:text-5xl font-bold text-white break-words tracking-wide drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">
+                    Grand Prize
+                </h2>
+            </div>
+
+            <!-- Spin Number & Win Streak Pill -->
+            <div class="flex items-center justify-center gap-2 mb-7">
+                <p id="modalSpinStats" class="text-xs sm:text-sm font-medium text-slate-300 bg-slate-900/80 border border-white/10 px-4 py-1.5 rounded-full">
+                    Spin #1 • Recorded in history log
+                </p>
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button id="modalRemoveWinnerBtn" class="flex-1 py-3.5 px-5 rounded-2xl bg-slate-800/90 hover:bg-rose-950/90 text-slate-200 hover:text-rose-200 border border-white/15 font-semibold text-sm flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-ban text-rose-400"></i>
+                    <span>Remove Option</span>
+                </button>
+                <button id="modalSpinAgainBtn" class="flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white font-display font-bold text-base tracking-wide shadow-xl shadow-pink-500/30 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.99] transition">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Keep & Continue</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Entry Module -->
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>
+

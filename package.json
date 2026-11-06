@@ -1,0 +1,10 @@
+{
+  "name": "game-of-wheel",
+  "version": "1.0.0",
+  "description": "Game of Wheel - Interactive Physics Prize & Decision Spinner",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  }
+}
