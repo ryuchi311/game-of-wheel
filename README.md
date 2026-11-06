@@ -30,3 +30,10 @@ GOW/
    ```
 2. Open your browser at `http://localhost:3010`.
 
+## 💖 Support / Donations
+
+If you enjoy Game of Wheel and want to support the project:
+- **PayPal**: [paypal.me/checago](https://paypal.me/checago)
+- **GCash / QR Ph**: Scan the QR code available in the web app under **"Tip & Support"**.
+
+

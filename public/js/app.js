@@ -84,6 +84,11 @@ const modalSpinStats = document.getElementById('modalSpinStats');
 const modalRemoveWinnerBtn = document.getElementById('modalRemoveWinnerBtn');
 const modalSpinAgainBtn = document.getElementById('modalSpinAgainBtn');
 
+const donateBtn = document.getElementById('donateBtn');
+const sideDonateBtn = document.getElementById('sideDonateBtn');
+const donateModal = document.getElementById('donateModal');
+const closeDonateModalBtn = document.getElementById('closeDonateModalBtn');
+
 /**
  * Helpers
  */
@@ -819,6 +824,28 @@ winnerModal.addEventListener('click', (e) => {
     if (e.target === winnerModal) closeWinnerModal();
 });
 
+// Donation Modal Controls
+function openDonateModal() {
+    if (!donateModal) return;
+    donateModal.classList.remove('hidden');
+    donateModal.classList.add('flex');
+}
+
+function closeDonateModal() {
+    if (!donateModal) return;
+    donateModal.classList.add('hidden');
+    donateModal.classList.remove('flex');
+}
+
+if (donateBtn) donateBtn.addEventListener('click', openDonateModal);
+if (sideDonateBtn) sideDonateBtn.addEventListener('click', openDonateModal);
+if (closeDonateModalBtn) closeDonateModalBtn.addEventListener('click', closeDonateModal);
+if (donateModal) {
+    donateModal.addEventListener('click', (e) => {
+        if (e.target === donateModal) closeDonateModal();
+    });
+}
+
 modalRemoveWinnerBtn.addEventListener('click', () => {
     if (state.lastWinnerIndex !== null && state.options.length > 2) {
         state.options.splice(state.lastWinnerIndex, 1);
@@ -885,16 +912,22 @@ window.addEventListener('keydown', (e) => {
 
     if (e.code === 'Space') {
         e.preventDefault();
-        if (!winnerModal.classList.contains('hidden')) {
+        if (donateModal && !donateModal.classList.contains('hidden')) {
+            closeDonateModal();
+        } else if (!winnerModal.classList.contains('hidden')) {
             closeWinnerModal();
         } else {
             triggerSpin();
         }
+    } else if (e.key === 'Escape') {
+        if (donateModal && !donateModal.classList.contains('hidden')) {
+            closeDonateModal();
+        } else if (document.body.classList.contains('stage-mode') && !document.fullscreenElement) {
+            updateStageModeUI(false);
+        }
     } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         toggleStageMode();
-    } else if (e.key === 'Escape' && document.body.classList.contains('stage-mode') && !document.fullscreenElement) {
-        updateStageModeUI(false);
     }
 });
 

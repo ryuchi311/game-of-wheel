@@ -104,6 +104,12 @@
                     <i id="soundIcon" class="fa-solid fa-volume-high"></i>
                 </button>
 
+                <!-- Tip / Donate Button -->
+                <button id="donateBtn" type="button" class="h-10 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition" title="Support Developer / Send Tip">
+                    <i class="fa-solid fa-heart text-rose-300 animate-pulse"></i>
+                    <span class="hidden sm:inline">Tip & Support</span>
+                </button>
+
                 <!-- Stage Big-Screen Fullscreen Button -->
                 <button id="stageModeBtn" type="button" class="h-10 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white font-display font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-pink-500/25 transition" title="Toggle Stage Big-Screen Fullscreen (or press F)">
                     <i id="stageModeIcon" class="fa-solid fa-expand"></i>
@@ -382,6 +388,22 @@
                     <span class="text-xs text-slate-500 italic">No winners yet — spin the wheel!</span>
                 </div>
             </div>
+
+            <!-- Developer Support / Donate Card -->
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-between gap-3 border border-emerald-500/20 bg-gradient-to-r from-emerald-950/30 to-slate-900/60">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-300 text-lg">
+                        <i class="fa-solid fa-mug-hot"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-display font-semibold text-white">Enjoying Game of Wheel?</p>
+                        <p class="text-[11px] text-slate-400">Support the creator via PayPal or GCash!</p>
+                    </div>
+                </div>
+                <button id="sideDonateBtn" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/30 transition shrink-0">
+                    <i class="fa-solid fa-heart text-rose-600"></i> Donate
+                </button>
+            </div>
         </section>
     </main>
 
@@ -447,6 +469,69 @@
                     <i class="fa-solid fa-rotate-right"></i>
                     <span>Keep & Continue</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Donation / Support Creator Modal -->
+    <div id="donateModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-lg overflow-y-auto">
+        <div class="glass-panel animate-modal-pop max-w-md w-full rounded-[2rem] p-6 sm:p-7 relative border border-emerald-400/40 shadow-[0_0_70px_rgba(16,185,129,0.3)] my-auto text-center">
+            <!-- Close Button -->
+            <button id="closeDonateModalBtn" aria-label="Close Donation Modal" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+
+            <!-- Heart Icon Badge -->
+            <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 p-0.5 shadow-lg shadow-emerald-500/30 flex items-center justify-center">
+                <div class="w-full h-full rounded-[0.9rem] bg-slate-950 flex items-center justify-center">
+                    <i class="fa-solid fa-heart text-2xl text-rose-400"></i>
+                </div>
+            </div>
+
+            <h3 class="font-display text-xl sm:text-2xl font-bold text-white tracking-wide">Support the Developer</h3>
+            <p class="text-xs text-slate-300 mt-1 mb-5">Your donations keep this project free, ad-free, and continuously updated!</p>
+
+            <div class="space-y-4 text-left">
+                <!-- PayPal Option -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-sky-500/30 hover:border-sky-400/60 transition group flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-[#003087] flex items-center justify-center text-white text-sm shadow">
+                                <i class="fa-brands fa-paypal"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-white">PayPal</h4>
+                                <p class="text-[11px] text-sky-400 font-mono">paypal.me/checago</p>
+                            </div>
+                        </div>
+                        <a href="https://paypal.me/checago" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 shadow transition">
+                            <span>Send Money</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- GCash / QR Ph Option -->
+                <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-blue-500/30 flex flex-col gap-2.5 items-center text-center">
+                    <div class="w-full flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse"></span>
+                            <span class="text-xs font-bold text-white uppercase tracking-wider">GCash / InstaPay QR</span>
+                        </div>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-medium">Scan to Pay</span>
+                    </div>
+
+                    <!-- QR Code Display Frame -->
+                    <div class="p-2.5 bg-white rounded-2xl shadow-xl max-w-[240px] w-full aspect-square flex items-center justify-center border-4 border-slate-800">
+                        <img src="/images/gcash-qr.jpg" alt="GCash InstaPay QR Code" class="w-full h-full object-contain rounded-lg">
+                    </div>
+                    <p class="text-[11px] text-slate-400">Open GCash, Maya, or any InstaPay banking app and scan this QR code.</p>
+                </div>
+            </div>
+
+            <div class="mt-5 pt-3 border-t border-white/10 flex items-center justify-center gap-1 text-[11px] text-slate-400">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                <span>Thank you so much for your generosity & support!</span>
             </div>
         </div>
     </div>
