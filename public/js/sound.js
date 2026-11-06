@@ -272,6 +272,26 @@ class SoundEngine {
             console.warn(e);
         }
     }
+
+    playBoingSound() {
+        if (!state.soundEnabled || !this.initialized || !this.woodSynth) return;
+        try {
+            const now = Tone.now();
+            this.woodSynth.triggerAttackRelease('C2', '8n', now);
+            if (this.bellSynth) {
+                this.bellSynth.triggerAttackRelease(['G5', 'E5', 'C6'], '16n', now + 0.05, 0.85);
+            }
+        } catch (e) {}
+    }
+
+    playAlarmSiren() {
+        if (!state.soundEnabled || !this.initialized || !this.cyberSynth) return;
+        try {
+            const now = Tone.now();
+            this.cyberSynth.triggerAttackRelease('F5', '32n', now);
+            this.cyberSynth.triggerAttackRelease('C6', '32n', now + 0.08);
+        } catch (e) {}
+    }
 }
 
 export const soundEngine = new SoundEngine();

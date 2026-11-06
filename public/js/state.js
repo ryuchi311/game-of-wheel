@@ -31,7 +31,17 @@ export const state = {
     targetAngle: 0,
     isRevealingWinner: false, // Brief dramatic spotlight pause after wheel stops
     revealStartTime: 0,
-    suspenseIntensity: 0   // 0..1 intensity during the final crawl
+    suspenseIntensity: 0,  // 0..1 intensity during the final crawl
+
+    // Spin Modifiers & Atmosphere Checkboxes
+    modes: {
+        dramatic: true,    // Slow-motion heartbeat crawl & spotlight zoom
+        intense: false,    // High-speed siren alarm & heavy screen glow
+        thrill: false,     // Last-millimeter near-miss fake-out crawl
+        surprise: false,   // Reverse direction fake-out near finish
+        panic: false,      // Aggressive screen shake & rapid warning tick
+        funny: false       // Boing, slide whistle, wobble & comic winner captions
+    }
 };
 
 export function saveStateToStorage() {

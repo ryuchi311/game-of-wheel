@@ -24,6 +24,14 @@ const spinDurationInput = document.getElementById('spinDurationInput');
 const spinTimePresetBtns = document.querySelectorAll('.spin-time-preset');
 const eliminateWinnerToggle = document.getElementById('eliminateWinnerToggle');
 
+// Drama & Atmosphere Checkboxes
+const modeDramatic = document.getElementById('modeDramatic');
+const modeIntense = document.getElementById('modeIntense');
+const modeThrill = document.getElementById('modeThrill');
+const modeSurprise = document.getElementById('modeSurprise');
+const modePanic = document.getElementById('modePanic');
+const modeFunny = document.getElementById('modeFunny');
+
 const presetSelect = document.getElementById('presetSelect');
 const soundThemeSelect = document.getElementById('soundThemeSelect');
 const panelSoundThemeSelect = document.getElementById('panelSoundThemeSelect');
@@ -115,6 +123,17 @@ function easeOutQuart(t) {
  * PHYSICS & ANIMATION LOOP
  * ============================================================================
  */
+// Funny / Humorous winner titles & quotes
+const FUNNY_WINNER_QUOTES = [
+    "Certified Wheel Champion! 👑",
+    "Against all odds (and basic math)! 😂",
+    "Physics looked the other way! 🚀",
+    "Don't spend it all in one place! 🍕",
+    "The council of spinners has decided! 🧙‍♂️",
+    "Rigged? Absolutely not! (Maybe?) 😜",
+    "Pure skill, zero luck! 🧠"
+];
+
 function triggerSpin() {
     if (state.isSpinning || state.isRevealingWinner) return;
     if (state.options.length < 2) {
@@ -134,14 +153,41 @@ function triggerSpin() {
     centerHubBtn.disabled = true;
     statusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
 
+    // Clear previous visual effect classes
+    document.body.classList.remove('panic-shake', 'intense-alarm-border');
+    wheelWrapper.classList.remove('funny-wobble');
+
+    // Sync active modifiers from checkboxes
+    state.modes.dramatic = modeDramatic ? modeDramatic.checked : true;
+    state.modes.intense = modeIntense ? modeIntense.checked : false;
+    state.modes.thrill = modeThrill ? modeThrill.checked : false;
+    state.modes.surprise = modeSurprise ? modeSurprise.checked : false;
+    state.modes.panic = modePanic ? modePanic.checked : false;
+    state.modes.funny = modeFunny ? modeFunny.checked : false;
+
+    // Apply Intense alarm visual & Funny wobble immediately if selected
+    if (state.modes.intense) {
+        document.body.classList.add('intense-alarm-border');
+    }
+    if (state.modes.funny) {
+        wheelWrapper.classList.add('funny-wobble');
+    }
+
     const customSec = parseFloat(spinDurationInput.value);
-    const durationSec = (!isNaN(customSec) && customSec >= 1) ? Math.min(300, customSec) : (parseInt(spinDurationRange.value, 10) || 8);
+    let durationSec = (!isNaN(customSec) && customSec >= 1) ? Math.min(300, customSec) : (parseInt(spinDurationRange.value, 10) || 8);
+    
+    // Thrill mode adds a suspenseful extended crawl
+    if (state.modes.thrill) {
+        durationSec = Math.max(durationSec, 9);
+    }
+
     state.spinDuration = durationSec * 1000;
     state.spinStartTime = performance.now();
     state.startAngle = state.currentAngle;
 
     // Scale full rotations proportionally with spin duration so longer spins stay energetic
-    const baseRotations = Math.max(6, Math.round(durationSec * 1.4));
+    let baseRotations = Math.max(6, Math.round(durationSec * 1.4));
+    if (state.modes.panic) baseRotations += 4; // Extra fast spin in panic mode
     const extraSpins = (baseRotations + Math.random() * 4) * Math.PI * 2;
     const randomStopOffset = Math.random() * Math.PI * 2;
     state.targetAngle = state.startAngle + extraSpins + randomStopOffset;
@@ -152,22 +198,39 @@ function triggerSpin() {
 function updatePhysics(now) {
     if (state.isSpinning) {
         const elapsed = now - state.spinStartTime;
-        const progress = Math.min(1, elapsed / state.spinDuration);
-        const eased = easeOutQuart(progress);
+        let progress = Math.min(1, elapsed / state.spinDuration);
+
+        // Surprise fake-out modifier: near finish (progress 0.88 - 0.96), wheel hesitates or briefly reverses
+        let easedProgress = progress;
+        if (state.modes.surprise && progress > 0.84 && progress < 0.98) {
+            const fakeOutDip = Math.sin((progress - 0.84) / 0.14 * Math.PI) * 0.022;
+            easedProgress = Math.max(0, easeOutQuart(progress) - fakeOutDip);
+        } else {
+            easedProgress = easeOutQuart(progress);
+        }
 
         const prevAngle = state.currentAngle;
-        state.currentAngle = state.startAngle + (state.targetAngle - state.startAngle) * eased;
+        state.currentAngle = state.startAngle + (state.targetAngle - state.startAngle) * easedProgress;
         const deltaAngle = state.currentAngle - prevAngle;
 
         // Track suspense intensity during the final 35% of the spin
         state.suspenseIntensity = progress > 0.65 ? (progress - 0.65) / 0.35 : 0;
 
+        // Panic mode screen shaking trigger in final stretch
+        if (state.modes.panic) {
+            if (progress > 0.60 && !document.body.classList.contains('panic-shake')) {
+                document.body.classList.add('panic-shake');
+            }
+        }
+
         // Dynamic camera zoom & glow intensification on the wheel wrapper during final suspense
         if (state.suspenseIntensity > 0) {
-            const scale = 1 + state.suspenseIntensity * 0.045;
-            const glowPx = Math.round(35 + state.suspenseIntensity * 35);
+            let scale = 1 + state.suspenseIntensity * 0.045;
+            if (state.modes.dramatic) scale = 1 + state.suspenseIntensity * 0.075;
+            const glowColor = state.modes.panic ? 'rgba(239, 68, 68,' : (state.modes.intense ? 'rgba(59, 130, 246,' : 'rgba(245, 158, 11,');
+            const glowPx = Math.round(35 + state.suspenseIntensity * (state.modes.dramatic ? 55 : 35));
             wheelWrapper.style.transform = `scale(${scale.toFixed(4)})`;
-            wheelWrapper.style.filter = `drop-shadow(0 0 ${glowPx}px rgba(245, 158, 11, ${(0.35 + state.suspenseIntensity * 0.4).toFixed(2)}))`;
+            wheelWrapper.style.filter = `drop-shadow(0 0 ${glowPx}px ${glowColor} ${(0.35 + state.suspenseIntensity * 0.45).toFixed(2)}))`;
         }
 
         // Check if a slice boundary passed under the 12 o'clock pointer
@@ -176,16 +239,30 @@ function updatePhysics(now) {
             state.lastSegmentIndex = currentSliceIdx;
             
             // Deflect the pointer flapper when hit by a peg
-            const speedFactor = Math.min(1, deltaAngle * 14);
+            const speedFactor = Math.min(1, Math.abs(deltaAngle) * 14);
             state.pointerAngle = -0.45 * Math.max(0.35, speedFactor);
             
-            // Play peg tick sound
-            soundEngine.playTick(1 - progress);
+            // Play peg tick sound or special FX
+            if (state.modes.intense && progress > 0.85) {
+                soundEngine.playAlarmSiren();
+            } else if (state.modes.funny && progress > 0.90) {
+                soundEngine.playBoingSound();
+            } else {
+                soundEngine.playTick(1 - progress);
+            }
 
-            // Update live status banner with suspenseful messaging
+            // Update live status banner with atmospheric messaging
             const activeOption = state.options[currentSliceIdx];
             if (activeOption) {
-                if (progress > 0.78) {
+                if (state.modes.panic && progress > 0.70) {
+                    currentSliceLabel.innerHTML = `<span class="text-rose-400 font-bold animate-ping">⚠️ PANIC! It's stopping on: ${escapeHtml(activeOption.text)}!</span>`;
+                } else if (state.modes.surprise && progress > 0.85) {
+                    currentSliceLabel.innerHTML = `<span class="text-cyan-300 font-semibold animate-pulse">Wait... FAKE-OUT?! ${escapeHtml(activeOption.text)}?</span>`;
+                } else if (state.modes.thrill && progress > 0.88) {
+                    currentSliceLabel.innerHTML = `<span class="text-violet-300 font-semibold animate-pulse">😱 Millimeter crawl... ${escapeHtml(activeOption.text)}!</span>`;
+                } else if (state.modes.funny && progress > 0.75) {
+                    currentSliceLabel.innerHTML = `<span class="text-emerald-300 font-semibold">🤡 Uh oh... ${escapeHtml(activeOption.text)} incoming!</span>`;
+                } else if (progress > 0.78) {
                     currentSliceLabel.innerHTML = `<span class="text-amber-300 font-semibold animate-pulse">Wait for it... ${escapeHtml(activeOption.text)}?</span>`;
                 } else if (progress > 0.55) {
                     currentSliceLabel.innerHTML = `Slowing down... <span class="text-white font-semibold">${escapeHtml(activeOption.text)}</span>`;
@@ -203,6 +280,9 @@ function updatePhysics(now) {
             state.revealStartTime = now;
             soundEngine.playSuspenseHeartbeat();
 
+            // Clear panic shake on stop
+            document.body.classList.remove('panic-shake');
+
             const winnerIdx = getWinningSliceIndex(state.currentAngle);
             const winner = state.options[winnerIdx];
             if (winner) {
@@ -210,13 +290,16 @@ function updatePhysics(now) {
             }
         }
     } else if (state.isRevealingWinner) {
-        // Hold dramatic spotlight on the winning slice for 650ms before popping the celebration modal
+        // Dramatic spotlight hold before modal popup (longer hold if dramatic mode)
         const revealElapsed = now - state.revealStartTime;
-        if (revealElapsed >= 650) {
+        const revealHoldTime = state.modes.dramatic ? 900 : 650;
+        if (revealElapsed >= revealHoldTime) {
             state.isRevealingWinner = false;
             state.suspenseIntensity = 0;
             wheelWrapper.style.transform = '';
             wheelWrapper.style.filter = '';
+            wheelWrapper.classList.remove('funny-wobble');
+            document.body.classList.remove('panic-shake', 'intense-alarm-border');
             mainSpinBtn.disabled = false;
             centerHubBtn.disabled = false;
             statusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
@@ -298,7 +381,13 @@ function handleSpinWinner(winnerIdx) {
 
     // Count how many times this winner has won in total
     const winCount = state.history.filter(h => h.text === winner.text).length;
-    const streakBadge = winCount > 1 ? ` • 🔥 ${winCount}x Winner!` : '';
+    let streakBadge = winCount > 1 ? ` • 🔥 ${winCount}x Winner!` : '';
+
+    // Funny Mode comic quote
+    if (state.modes.funny) {
+        const randomQuote = FUNNY_WINNER_QUOTES[Math.floor(Math.random() * FUNNY_WINNER_QUOTES.length)];
+        streakBadge += ` • ${randomQuote}`;
+    }
 
     // Populate & Show Winner Modal with Dynamic Glow & Shimmer
     modalWinnerBanner.style.backgroundColor = winner.color;

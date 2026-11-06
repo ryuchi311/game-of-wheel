@@ -173,3 +173,40 @@ body.stage-mode #stageWinnersDock {
     display: flex !important;
 }
 
+/* ============================================================================
+ * DRAMATIC & FUNNY SPIN MODES ANIMATIONS
+ * ============================================================================ */
+/* Panic Screen Shake */
+@keyframes panicShake {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    15% { transform: translate(-5px, 4px) rotate(-1.2deg); }
+    30% { transform: translate(6px, -5px) rotate(1.4deg); }
+    45% { transform: translate(-6px, -3px) rotate(-1deg); }
+    60% { transform: translate(5px, 5px) rotate(1.2deg); }
+    75% { transform: translate(-4px, 3px) rotate(-0.8deg); }
+    90% { transform: translate(4px, -3px) rotate(0.6deg); }
+}
+.panic-shake {
+    animation: panicShake 0.12s linear infinite;
+}
+
+/* Intense Siren Red-Blue Pulse Overlay */
+@keyframes intenseAlarm {
+    0%, 100% { box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.45); }
+    50% { box-shadow: inset 0 0 100px rgba(59, 130, 246, 0.45); }
+}
+.intense-alarm-border {
+    animation: intenseAlarm 0.4s ease-in-out infinite alternate;
+}
+
+/* Funny Wobble */
+@keyframes funnyWobble {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.04, 0.96) rotate(-3deg); }
+    75% { transform: scale(0.96, 1.04) rotate(3deg); }
+}
+.funny-wobble {
+    animation: funnyWobble 0.35s ease-in-out infinite;
+}
+
+
