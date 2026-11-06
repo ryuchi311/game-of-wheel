@@ -24,6 +24,10 @@ GOW/
 
 ## Getting Started
 
+### Option 1: Double-click (Windows)
+Double-click **`run.bat`** in the project folder. It will start the server and automatically launch `http://localhost:3010` in your browser.
+
+### Option 2: Terminal / NPM
 1. Start the web server:
    ```bash
    npm start
