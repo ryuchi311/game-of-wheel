@@ -99,6 +99,78 @@ export const THEMES = {
         accent4: '#22C55E',
         bgBase: '#11152B',
         bgPanel: 'rgba(24, 30, 58, 0.88)'
+    },
+    amethyst: {
+        id: 'amethyst',
+        name: 'Amethyst Lagoon',
+        subtitle: 'Lavender, Muted Plum, Aqua & Deep Teal',
+        colors: ['#CCA8D8', '#8474A1', '#6EC6CA', '#08979D', '#055B5C'],
+        accent1: '#08979D',
+        accent2: '#CCA8D8',
+        accent3: '#6EC6CA',
+        accent4: '#8474A1',
+        bgBase: '#0A1C1E',
+        bgPanel: 'rgba(16, 36, 40, 0.88)'
+    },
+    botanical: {
+        id: 'botanical',
+        name: 'Botanical Moss',
+        subtitle: 'Turquoise, Deep Slate, Olive & Citron',
+        colors: ['#54C1CC', '#1F4E59', '#75A30E', '#DCD964', '#213502'],
+        accent1: '#54C1CC',
+        accent2: '#75A30E',
+        accent3: '#DCD964',
+        accent4: '#1F4E59',
+        bgBase: '#0E1914',
+        bgPanel: 'rgba(20, 35, 28, 0.88)'
+    },
+    meadow: {
+        id: 'meadow',
+        name: 'Spring Meadow',
+        subtitle: 'Aqua Mint, Pistachio, Buttercream, Coral & Lilac',
+        colors: ['#85E3CE', '#D0E6A5', '#FFDD94', '#FA897B', '#CCABD8'],
+        accent1: '#FA897B',
+        accent2: '#85E3CE',
+        accent3: '#CCABD8',
+        accent4: '#FFDD94',
+        bgBase: '#131924',
+        bgPanel: 'rgba(25, 33, 48, 0.88)'
+    },
+    oceanic: {
+        id: 'oceanic',
+        name: 'Deep Oceanic',
+        subtitle: 'Midnight Navy, Sapphire, Cerulean & Ice Blue',
+        colors: ['#001B48', '#02457A', '#018ABE', '#97CADB', '#D6E8EE'],
+        accent1: '#018ABE',
+        accent2: '#97CADB',
+        accent3: '#02457A',
+        accent4: '#D6E8EE',
+        bgBase: '#071326',
+        bgPanel: 'rgba(13, 27, 52, 0.88)'
+    },
+    terracotta: {
+        id: 'terracotta',
+        name: 'Terracotta Oasis',
+        subtitle: 'Burnt Sienna, Tangerine, Amber, Seafoam & Sage',
+        colors: ['#E25B45', '#FF8357', '#FAC772', '#89D5C9', '#ADC865'],
+        accent1: '#E25B45',
+        accent2: '#FAC772',
+        accent3: '#89D5C9',
+        accent4: '#ADC865',
+        bgBase: '#18141C',
+        bgPanel: 'rgba(34, 27, 40, 0.88)'
+    },
+    blush: {
+        id: 'blush',
+        name: 'Desert Blush',
+        subtitle: 'Soft Rose, Terracotta Pink, Apricot & Warm Sage',
+        colors: ['#F5CEC7', '#E79796', '#FFC98B', '#FFB284', '#C6C09C'],
+        accent1: '#E79796',
+        accent2: '#FFB284',
+        accent3: '#FFC98B',
+        accent4: '#C6C09C',
+        bgBase: '#1A151E',
+        bgPanel: 'rgba(36, 29, 42, 0.88)'
     }
 };
 
