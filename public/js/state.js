@@ -3,12 +3,14 @@
  * GAME OF WHEEL - APPLICATION STATE & PERSISTENT STORAGE
  * ============================================================================
  */
-import { PRESETS } from './config.js';
+import { PRESETS, THEMES } from './config.js';
 
 const STORAGE_KEY_HISTORY = 'gow_saved_winners_v1';
-const STORAGE_KEY_OPTIONS = 'gow_saved_options_v1';
+const STORAGE_KEY_OPTIONS = 'gow_saved_options_v4';
+const STORAGE_KEY_THEME = 'gow_saved_theme_v1';
 
 export const state = {
+    theme: 'sunset',       // Active palette theme key from THEMES
     options: JSON.parse(JSON.stringify(PRESETS.prizes)),
     history: [],
     isSpinning: false,
@@ -47,10 +49,16 @@ export const state = {
     }
 };
 
+export function getActivePalette() {
+    const themeObj = THEMES[state.theme] || THEMES.sunset;
+    return themeObj.colors;
+}
+
 export function saveStateToStorage() {
     try {
         localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(state.history));
         localStorage.setItem(STORAGE_KEY_OPTIONS, JSON.stringify(state.options));
+        localStorage.setItem(STORAGE_KEY_THEME, state.theme);
     } catch (e) {
         console.warn('Could not save state to localStorage:', e);
     }
@@ -58,6 +66,10 @@ export function saveStateToStorage() {
 
 export function loadStateFromStorage() {
     try {
+        const savedTheme = localStorage.getItem(STORAGE_KEY_THEME);
+        if (savedTheme && THEMES[savedTheme]) {
+            state.theme = savedTheme;
+        }
         const savedHistory = localStorage.getItem(STORAGE_KEY_HISTORY);
         if (savedHistory) {
             const parsedH = JSON.parse(savedHistory);
@@ -74,4 +86,3 @@ export function loadStateFromStorage() {
         console.warn('Could not load state from localStorage:', e);
     }
 }
-

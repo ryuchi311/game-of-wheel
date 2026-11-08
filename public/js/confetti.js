@@ -1,8 +1,11 @@
 /**
  * ============================================================================
  * WINNER CELEBRATION & CONFETTI FIREWORKS
+ * Uses the active theme palette colors dynamically.
  * ============================================================================
  */
+import { getActivePalette } from './state.js';
+
 let celebrationTimeouts = [];
 
 export function clearCelebrationTimeouts() {
@@ -15,7 +18,12 @@ export function launchJackpotConfetti(winnerColor) {
 
     clearCelebrationTimeouts();
 
-    const colors = [winnerColor || '#F59E0B', '#FBBF24', '#EC4899', '#38BDF8', '#A855F7', '#10B981', '#FFFFFF'];
+    const activeColors = getActivePalette();
+    const colors = [
+        winnerColor || activeColors[0],
+        ...activeColors,
+        '#FFFFFF'
+    ];
 
     // 1. Immediate Dual Side Cannons
     confetti({
@@ -37,7 +45,7 @@ export function launchJackpotConfetti(winnerColor) {
         zIndex: 9999
     });
 
-    // 2. Center Golden Star Burst (300ms)
+    // 2. Center Star Burst (300ms)
     celebrationTimeouts.push(setTimeout(() => {
         confetti({
             particleCount: 70,
@@ -49,12 +57,12 @@ export function launchJackpotConfetti(winnerColor) {
             shapes: ['star'],
             scalar: 1.35,
             origin: { x: 0.5, y: 0.42 },
-            colors: ['#FDE047', '#F59E0B', '#FFFBEB', winnerColor || '#EC4899'],
+            colors,
             zIndex: 9999
         });
     }, 300));
 
-    // 3. Secondary High Fireworks Salvo (700ms & 1150ms)
+    // 3. Secondary High Fireworks Salvo (720ms & 1150ms)
     celebrationTimeouts.push(setTimeout(() => {
         confetti({
             particleCount: 65,
@@ -86,4 +94,3 @@ export function launchJackpotConfetti(winnerColor) {
         });
     }, 1150));
 }
-

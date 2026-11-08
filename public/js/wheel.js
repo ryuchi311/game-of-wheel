@@ -1,10 +1,11 @@
 /**
  * ============================================================================
  * CANVAS RESIZING & WHEEL GEOMETRY RENDERING
+ * Adapts dynamically to the active Palette Theme & auto-calculates text contrast.
  * ============================================================================
  */
-import { VIBRANT_PALETTE } from './config.js';
-import { state } from './state.js';
+import { THEMES } from './config.js';
+import { state, getActivePalette } from './state.js';
 
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
@@ -20,6 +21,22 @@ export function resizeCanvas() {
 }
 
 /**
+ * Computes WCAG relative luminance of a hex color to pick dark vs light text
+ */
+export function isLightHexColor(hex) {
+    if (!hex || typeof hex !== 'string') return false;
+    const clean = hex.replace('#', '').trim();
+    if (clean.length !== 6) return false;
+    const sRGB = [
+        parseInt(clean.slice(0, 2), 16) / 255,
+        parseInt(clean.slice(2, 4), 16) / 255,
+        parseInt(clean.slice(4, 6), 16) / 255
+    ].map(c => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+    const lum = 0.2126 * sRGB[0] + 0.7152 * sRGB[1] + 0.0722 * sRGB[2];
+    return lum > 0.36;
+}
+
+/**
  * Computes which slice index is currently under the top pointer (12 o'clock = -PI/2)
  */
 export function getWinningSliceIndex(angle) {
@@ -32,7 +49,7 @@ export function getWinningSliceIndex(angle) {
 }
 
 /**
- * Renders the complete wheel, outer casino rim, pegs, text labels, and top pointer
+ * Renders the wheel, outer bezel, rim lights, boundary pegs, and pointer
  */
 export function drawWheel() {
     const width = wheelWrapper.clientWidth;
@@ -43,25 +60,34 @@ export function drawWheel() {
 
     const cx = width / 2;
     const cy = height / 2;
-    const outerRadius = Math.min(cx, cy) - 18; // Leave room for top pointer
-    const wheelRadius = outerRadius - 14;
+    const outerRadius = Math.min(cx, cy) - 16; // Leave room for top pointer
+    const wheelRadius = outerRadius - 13;
     const count = state.options.length;
 
     if (count === 0) return;
     const arc = (Math.PI * 2) / count;
 
-    // 1. Draw Outer Metallic Bezel / Rim
+    const activeTheme = THEMES[state.theme] || THEMES.sunset;
+    const palette = getActivePalette();
+
+    // 1. Draw Outer Bezel / Rim (Professional Metallic Game Bezel)
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
     const rimGrad = ctx.createLinearGradient(0, 0, width, height);
-    rimGrad.addColorStop(0, '#334155');
-    rimGrad.addColorStop(0.5, '#0f172a');
-    rimGrad.addColorStop(1, '#475569');
+    rimGrad.addColorStop(0, '#2A2546');
+    rimGrad.addColorStop(0.5, activeTheme.bgBase || '#131122');
+    rimGrad.addColorStop(1, '#19162D');
     ctx.fillStyle = rimGrad;
     ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#fbbf24';
+
+    // Crisp outer rim stroke with active theme gradient
+    const strokeGrad = ctx.createLinearGradient(0, 0, width, height);
+    strokeGrad.addColorStop(0, activeTheme.accent1);
+    strokeGrad.addColorStop(0.5, activeTheme.accent2);
+    strokeGrad.addColorStop(1, activeTheme.accent3);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = strokeGrad;
     ctx.stroke();
     ctx.restore();
 
@@ -75,6 +101,7 @@ export function drawWheel() {
         const startAngle = i * arc;
         const endAngle = startAngle + arc;
         const option = state.options[i];
+        const sliceColor = option.color || palette[i % palette.length];
 
         // Slice Wedge
         ctx.beginPath();
@@ -82,41 +109,49 @@ export function drawWheel() {
         ctx.arc(0, 0, wheelRadius, startAngle, endAngle);
         ctx.closePath();
 
-        ctx.fillStyle = option.color || VIBRANT_PALETTE[i % VIBRANT_PALETTE.length];
+        ctx.fillStyle = sliceColor;
         ctx.fill();
 
-        // Dramatic Spotlight Highlight on active slice during final suspense or reveal
+        // Subtle Satin Sheen so pastel and vibrant slices alike feel dimensional
+        const wedgeGrad = ctx.createRadialGradient(0, 0, wheelRadius * 0.1, 0, 0, wheelRadius);
+        wedgeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+        wedgeGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0)');
+        wedgeGrad.addColorStop(1, 'rgba(15, 14, 23, 0.14)');
+        ctx.fillStyle = wedgeGrad;
+        ctx.fill();
+
+        // Spotlight Highlight on active slice during final suspense or reveal
         if (i === activeSliceIdx && (state.suspenseIntensity > 0.1 || state.isRevealingWinner)) {
             const glowAlpha = state.isRevealingWinner
-                ? 0.28 + 0.15 * Math.sin(Date.now() / 60)
-                : state.suspenseIntensity * 0.25;
+                ? 0.28 + 0.14 * Math.sin(Date.now() / 65)
+                : state.suspenseIntensity * 0.24;
             ctx.fillStyle = `rgba(255, 255, 255, ${glowAlpha})`;
             ctx.fill();
         }
 
-        // Crisp Divider Line
-        ctx.lineWidth = (i === activeSliceIdx && state.isRevealingWinner) ? 3.5 : 2;
+        // Crisp Slice Divider
+        ctx.lineWidth = (i === activeSliceIdx && state.isRevealingWinner) ? 3 : 1.85;
         ctx.strokeStyle = (i === activeSliceIdx && state.isRevealingWinner)
-            ? '#fde047'
-            : 'rgba(255, 255, 255, 0.35)';
+            ? '#FFFFFF'
+            : 'rgba(19, 17, 34, 0.78)';
         ctx.stroke();
 
-        // Slice Label Text
+        // Slice Label Text (Auto-contrasted for light pastel slices vs deep vibrant slices)
+        const useDarkText = isLightHexColor(sliceColor);
         ctx.save();
         ctx.rotate(startAngle + arc / 2);
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = useDarkText ? '#0F172A' : '#FFFFFF';
 
-        // Dynamic font scaling based on slice count and wheel size
-        const baseFontSize = Math.max(10, Math.min(18, (wheelRadius * 0.11) - (count * 0.25)));
-        ctx.font = `700 ${baseFontSize}px Fredoka, Inter, sans-serif`;
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 1;
+        const baseFontSize = Math.max(11, Math.min(16, (wheelRadius * 0.095) - (count * 0.18)));
+        ctx.font = `700 ${baseFontSize}px "Plus Jakarta Sans", Inter, -apple-system, BlinkMacSystemFont, sans-serif`;
+        ctx.shadowColor = useDarkText ? 'rgba(255, 255, 255, 0.5)' : 'rgba(15, 14, 23, 0.7)';
+        ctx.shadowBlur = useDarkText ? 1 : 4;
+        ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 1;
 
-        const maxTextWidth = wheelRadius * 0.62;
+        const maxTextWidth = wheelRadius * 0.60;
         let label = option.text;
         if (ctx.measureText(label).width > maxTextWidth) {
             while (label.length > 3 && ctx.measureText(label + '…').width > maxTextWidth) {
@@ -125,77 +160,73 @@ export function drawWheel() {
             label += '…';
         }
 
-        ctx.fillText(label, wheelRadius - 18, 0);
+        ctx.fillText(label, wheelRadius - 20, 0);
         ctx.restore();
     }
 
-    // 3. Draw Outer Rim Light Bulbs & Divider Pegs
+    // 3. Draw Bezel Accent Lights & Polished Boundary Pegs
     for (let i = 0; i < count; i++) {
         const pegAngle = i * arc;
         const midAngle = pegAngle + arc / 2;
 
-        // Glowing Bulb on the outer rim
-        const bx = Math.cos(midAngle) * (wheelRadius + 7);
-        const by = Math.sin(midAngle) * (wheelRadius + 7);
+        // Bezel Accent Dot cycling through the active theme highlights
+        const bx = Math.cos(midAngle) * (wheelRadius + 6.5);
+        const by = Math.sin(midAngle) * (wheelRadius + 6.5);
         ctx.beginPath();
-        ctx.arc(bx, by, 3.5, 0, Math.PI * 2);
-        const blinkRate = state.isRevealingWinner ? 65 : (state.suspenseIntensity > 0.3 ? 110 : 250);
-        const isLit = Math.floor(Date.now() / blinkRate + i) % 2 === 0;
-        ctx.fillStyle = isLit ? '#fef08a' : '#ca8a04';
+        ctx.arc(bx, by, 2.6, 0, Math.PI * 2);
+        const isLit = Math.floor(Date.now() / (state.isSpinning ? 140 : 450) + i) % 2 === 0;
+        ctx.fillStyle = isLit ? activeTheme.accent1 : 'rgba(255, 255, 255, 0.45)';
         ctx.fill();
 
-        // Metallic Peg at slice boundary
-        const px = Math.cos(pegAngle) * (wheelRadius - 2);
-        const py = Math.sin(pegAngle) * (wheelRadius - 2);
+        // Pearl-White Boundary Peg
+        const px = Math.cos(pegAngle) * (wheelRadius - 1.5);
+        const py = Math.sin(pegAngle) * (wheelRadius - 1.5);
         ctx.beginPath();
-        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#f8fafc';
+        ctx.arc(px, py, 3.8, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = '#0f172a';
+        ctx.strokeStyle = activeTheme.bgBase || '#131122';
         ctx.stroke();
     }
 
-    // 4. Inner Shadow Ring for Depth
+    // 4. Inner Rim Highlight Ring
     ctx.beginPath();
     ctx.arc(0, 0, wheelRadius, 0, Math.PI * 2);
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.stroke();
 
     ctx.restore();
 
-    // 5. Draw Top Bouncing Pointer (Flapper at 12 o'clock)
+    // 5. Draw Top Pointer (12 o'clock 3D Tactile Flapper)
     ctx.save();
-    ctx.translate(cx, cy - outerRadius + 4);
+    ctx.translate(cx, cy - outerRadius + 3);
     ctx.rotate(state.pointerAngle);
 
-    // Pointer Drop Shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
 
-    // Flapper Triangle Body
     ctx.beginPath();
-    ctx.moveTo(-14, -10);
-    ctx.lineTo(14, -10);
-    ctx.lineTo(0, 28);
+    ctx.moveTo(-13, -9);
+    ctx.lineTo(13, -9);
+    ctx.lineTo(0, 25);
     ctx.closePath();
-    const pointerGrad = ctx.createLinearGradient(0, -10, 0, 28);
-    pointerGrad.addColorStop(0, '#f43f5e');
-    pointerGrad.addColorStop(1, '#be123c');
+    const pointerGrad = ctx.createLinearGradient(0, -9, 0, 25);
+    pointerGrad.addColorStop(0, activeTheme.accent1);
+    pointerGrad.addColorStop(1, activeTheme.accent2);
     ctx.fillStyle = pointerGrad;
     ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#FFFFFF';
     ctx.stroke();
 
-    // Pointer Pivot Cap
+    // Center Pivot Pin
     ctx.beginPath();
-    ctx.arc(0, -6, 6, 0, Math.PI * 2);
-    ctx.fillStyle = '#fde047';
+    ctx.arc(0, -3.5, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
     ctx.fill();
 
     ctx.restore();
 }
-

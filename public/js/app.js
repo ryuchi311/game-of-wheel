@@ -3,10 +3,10 @@
  * GAME OF WHEEL - MAIN APPLICATION CONTROLLER & PHYSICS LOOP
  * ============================================================================
  */
-import { VIBRANT_PALETTE, PRESETS } from './config.js';
-import { state, saveStateToStorage, loadStateFromStorage } from './state.js';
+import { VIBRANT_PALETTE, PRESETS, THEMES } from './config.js';
+import { state, saveStateToStorage, loadStateFromStorage, getActivePalette } from './state.js';
 import { soundEngine } from './sound.js';
-import { resizeCanvas, getWinningSliceIndex, drawWheel } from './wheel.js';
+import { resizeCanvas, getWinningSliceIndex, drawWheel, isLightHexColor } from './wheel.js';
 import { launchJackpotConfetti, clearCelebrationTimeouts } from './confetti.js';
 
 /**
@@ -106,6 +106,13 @@ const footerDonateBtn = document.getElementById('footerDonateBtn');
 const donateModal = document.getElementById('donateModal');
 const closeDonateModalBtn = document.getElementById('closeDonateModalBtn');
 
+const themePickerBtn = document.getElementById('themePickerBtn');
+const activeThemeSwatches = document.getElementById('activeThemeSwatches');
+const activeThemeLabel = document.getElementById('activeThemeLabel');
+const themeModal = document.getElementById('themeModal');
+const closeThemeModalBtn = document.getElementById('closeThemeModalBtn');
+const themeCardsGrid = document.getElementById('themeCardsGrid');
+
 /**
  * Helpers
  */
@@ -132,21 +139,20 @@ function easeOutQuart(t) {
  * PHYSICS & ANIMATION LOOP
  * ============================================================================
  */
-// Funny / Humorous winner titles & quotes
+// Humorous winner notes for Elastic Bounce mode
 const FUNNY_WINNER_QUOTES = [
-    "Certified Wheel Champion! 👑",
-    "Against all odds (and basic math)! 😂",
-    "Physics looked the other way! 🚀",
-    "Don't spend it all in one place! 🍕",
-    "The council of spinners has decided! 🧙‍♂️",
-    "Rigged? Absolutely not! (Maybe?) 😜",
-    "Pure skill, zero luck! 🧠"
+    "Unanimous decision",
+    "Defying statistical probability",
+    "Angular momentum approved",
+    "No recounts permitted",
+    "Precision landed",
+    "Officially certified"
 ];
 
 function triggerSpin() {
     if (state.isSpinning || state.isRevealingWinner) return;
     if (state.options.length < 2) {
-        showValidationNotice('Add at least 2 options on the wheel to spin!');
+        showValidationNotice('Add at least 2 entries on the wheel to spin.');
         return;
     }
 
@@ -160,7 +166,7 @@ function triggerSpin() {
     state.suspenseIntensity = 0;
     mainSpinBtn.disabled = true;
     centerHubBtn.disabled = true;
-    statusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+    statusIndicator.className = 'w-2 h-2 rounded-full bg-[#FF69A4] animate-ping';
 
     // Clear previous visual effect classes
     document.body.classList.remove('panic-shake', 'intense-alarm-border');
@@ -271,23 +277,23 @@ function updatePhysics(now) {
                 soundEngine.playTick(1 - progress);
             }
 
-            // Update live status banner with atmospheric messaging
+            // Update live status banner with high-contrast game messaging
             const activeOption = state.options[currentSliceIdx];
             if (activeOption) {
                 if (state.modes.panic && progress > 0.70) {
-                    currentSliceLabel.innerHTML = `<span class="text-rose-400 font-bold animate-ping">⚠️ PANIC! It's stopping on: ${escapeHtml(activeOption.text)}!</span>`;
+                    currentSliceLabel.innerHTML = `<span class="text-[#FFE066] font-bold">Decelerating: ${escapeHtml(activeOption.text)}</span>`;
                 } else if (state.modes.surprise && progress > 0.85) {
-                    currentSliceLabel.innerHTML = `<span class="text-cyan-300 font-semibold animate-pulse">Wait... FAKE-OUT?! ${escapeHtml(activeOption.text)}?</span>`;
+                    currentSliceLabel.innerHTML = `<span class="text-[#FFE066] font-bold">Approaching: ${escapeHtml(activeOption.text)}</span>`;
                 } else if (state.modes.thrill && progress > 0.88) {
-                    currentSliceLabel.innerHTML = `<span class="text-violet-300 font-semibold animate-pulse">😱 Millimeter crawl... ${escapeHtml(activeOption.text)}!</span>`;
+                    currentSliceLabel.innerHTML = `<span class="text-[#FFE066] font-bold">Final crawl: ${escapeHtml(activeOption.text)}</span>`;
                 } else if (state.modes.funny && progress > 0.75) {
-                    currentSliceLabel.innerHTML = `<span class="text-emerald-300 font-semibold">🤡 Uh oh... ${escapeHtml(activeOption.text)} incoming!</span>`;
+                    currentSliceLabel.innerHTML = `<span class="text-[#FFE066] font-bold">Passing: ${escapeHtml(activeOption.text)}</span>`;
                 } else if (progress > 0.78) {
-                    currentSliceLabel.innerHTML = `<span class="text-amber-300 font-semibold animate-pulse">Wait for it... ${escapeHtml(activeOption.text)}?</span>`;
+                    currentSliceLabel.innerHTML = `Settling on <span class="text-[#FFE066] font-bold">${escapeHtml(activeOption.text)}</span>...`;
                 } else if (progress > 0.55) {
-                    currentSliceLabel.innerHTML = `Slowing down... <span class="text-white font-semibold">${escapeHtml(activeOption.text)}</span>`;
+                    currentSliceLabel.innerHTML = `Slowing down · <span class="text-white font-bold">${escapeHtml(activeOption.text)}</span>`;
                 } else {
-                    currentSliceLabel.textContent = `Spinning... ${activeOption.text}`;
+                    currentSliceLabel.textContent = `Spinning · ${activeOption.text}`;
                 }
             }
         }
@@ -306,7 +312,7 @@ function updatePhysics(now) {
             const winnerIdx = getWinningSliceIndex(state.currentAngle);
             const winner = state.options[winnerIdx];
             if (winner) {
-                currentSliceLabel.innerHTML = `🎯 <strong class="text-amber-300 text-base">${escapeHtml(winner.text)}!</strong>`;
+                currentSliceLabel.innerHTML = `Winner: <strong class="text-[#FFE066] font-bold">${escapeHtml(winner.text)}</strong>`;
             }
         }
     } else if (state.isRevealingWinner) {
@@ -322,7 +328,7 @@ function updatePhysics(now) {
             document.body.classList.remove('panic-shake', 'intense-alarm-border');
             mainSpinBtn.disabled = false;
             centerHubBtn.disabled = false;
-            statusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+            statusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-[#9BF02B] border border-white shadow-[0_0_8px_#9BF02B]';
 
             const winnerIdx = getWinningSliceIndex(state.currentAngle);
             handleSpinWinner(winnerIdx);
@@ -367,7 +373,7 @@ function handleSpinWinner(winnerIdx) {
     if (!winner) return;
 
     state.lastWinnerIndex = winnerIdx;
-    currentSliceLabel.innerHTML = `Winner: <strong class="text-amber-300">${escapeHtml(winner.text)}</strong>`;
+    currentSliceLabel.innerHTML = `Winner: <strong class="text-[#FFE066] font-bold">${escapeHtml(winner.text)}</strong>`;
 
     // Play victory chord
     soundEngine.playWinFanfare();
@@ -401,22 +407,28 @@ function handleSpinWinner(winnerIdx) {
 
     // Count how many times this winner has won in total
     const winCount = state.history.filter(h => h.text === winner.text).length;
-    let streakBadge = winCount > 1 ? ` • 🔥 ${winCount}x Winner!` : '';
+    let streakBadge = winCount > 1 ? ` · ${winCount}× selected` : '';
 
-    // Funny Mode comic quote
+    // Funny Mode note
     if (state.modes.funny) {
         const randomQuote = FUNNY_WINNER_QUOTES[Math.floor(Math.random() * FUNNY_WINNER_QUOTES.length)];
-        streakBadge += ` • ${randomQuote}`;
+        streakBadge += ` · ${randomQuote}`;
     }
 
-    // Populate & Show Winner Modal with Dynamic Glow & Shimmer
+    // Populate & Show Winner Modal with automatic high-contrast text color
+    const isLightBanner = isLightHexColor(winner.color);
     modalWinnerBanner.style.backgroundColor = winner.color;
-    modalWinnerBanner.style.boxShadow = `0 12px 45px ${winner.color}88, inset 0 2px 12px rgba(255, 255, 255, 0.45)`;
+    modalWinnerBanner.style.borderColor = '#FFFFFF';
+    modalWinnerBanner.style.boxShadow = `0 6px 0 rgba(0, 0, 0, 0.25), 0 12px 24px -4px ${winner.color}88, inset 0 2px 0 rgba(255, 255, 255, 0.45)`;
     if (modalAmbientGlow) {
         modalAmbientGlow.style.backgroundColor = winner.color;
     }
     modalWinnerText.textContent = winner.text;
-    modalSpinStats.textContent = `Spin #${state.history[0].spinNumber} • Landed at ${timestamp}${streakBadge}`;
+    modalWinnerText.style.color = isLightBanner ? '#1E1B4B' : '#FFFFFF';
+    modalWinnerText.style.textShadow = isLightBanner
+        ? '0 1px 0 rgba(255, 255, 255, 0.65)'
+        : '0 3px 0 rgba(0, 0, 0, 0.35)';
+    modalSpinStats.textContent = `Spin #${state.history[0].spinNumber} · ${timestamp}${streakBadge}`;
     
     // Disable "Remove Option" button in modal if already auto-removed or <= 2 options left
     if (eliminateWinnerToggle.checked || state.options.length <= 2) {
@@ -448,14 +460,14 @@ function renderOptionsList() {
 
     state.options.forEach((opt, idx) => {
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-2 bg-slate-900/75 hover:bg-slate-900 border border-white/10 rounded-xl p-2 transition group';
+        row.className = 'flex items-center gap-2 bg-[#1A1730] hover:bg-[#221E3D] border border-white/10 rounded-xl px-2.5 py-1.5 shadow-[0_2px_0_rgba(0,0,0,0.4)] transition group';
 
         // Color Picker Swatch
         const colorInput = document.createElement('input');
         colorInput.type = 'color';
         colorInput.value = opt.color;
         colorInput.title = 'Customize slice color';
-        colorInput.className = 'w-7 h-7 rounded-lg cursor-pointer bg-transparent border-0 shrink-0';
+        colorInput.className = 'w-6 h-6 rounded-lg cursor-pointer bg-transparent border-0 shrink-0';
         colorInput.addEventListener('input', (e) => {
             state.options[idx].color = e.target.value;
             saveStateToStorage();
@@ -467,31 +479,30 @@ function renderOptionsList() {
         textInput.type = 'text';
         textInput.value = opt.text;
         textInput.maxLength = 40;
-        textInput.setAttribute('aria-label', `Option ${idx + 1} text`);
-        textInput.className = 'flex-1 bg-transparent text-sm text-slate-100 focus:outline-none focus:bg-slate-800/80 px-2.5 py-1 rounded-lg transition';
+        textInput.setAttribute('aria-label', `Entry ${idx + 1} text`);
+        textInput.className = 'flex-1 bg-transparent text-xs sm:text-sm font-medium text-slate-100 focus:outline-none focus:bg-[#131122] px-2 py-1 rounded-lg transition';
         textInput.addEventListener('input', (e) => {
             const val = e.target.value.trim();
-            state.options[idx].text = val || `Option ${idx + 1}`;
+            state.options[idx].text = val || `Entry ${idx + 1}`;
             saveStateToStorage();
             drawWheel();
         });
 
-        // Delete Option Button with double-click / confirmation safeguard
+        // Delete Option Button with two-step confirmation safeguard
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
-        delBtn.title = 'Remove option';
-        delBtn.className = 'w-8 h-8 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0';
+        delBtn.title = 'Remove entry';
+        delBtn.className = 'w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-[#F43F5E] flex items-center justify-center transition shrink-0 text-xs';
         delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
         
         let confirmTimeout = null;
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (state.options.length <= 2) {
-                showValidationNotice('Minimum of 2 options required on the wheel!');
+                showValidationNotice('Minimum of 2 entries required on the wheel.');
                 return;
             }
 
-            // Two-step confirmation: first click asks "Sure?", second click confirms deletion
             if (delBtn.getAttribute('data-confirming') === 'true') {
                 clearTimeout(confirmTimeout);
                 state.options.splice(idx, 1);
@@ -499,13 +510,12 @@ function renderOptionsList() {
                 drawWheel();
             } else {
                 delBtn.setAttribute('data-confirming', 'true');
-                delBtn.className = 'px-2 h-7 rounded-lg text-[11px] font-semibold bg-rose-600/30 text-rose-300 border border-rose-400/50 flex items-center gap-1 transition shrink-0 animate-pulse';
-                delBtn.innerHTML = '<i class="fa-solid fa-trash-can text-[10px]"></i> Sure?';
+                delBtn.className = 'game-btn game-btn-red px-2.5 h-7 text-[11px] flex items-center gap-1 shrink-0';
+                delBtn.innerHTML = 'Confirm';
                 
-                // Reset back to normal after 2.8 seconds if not clicked again
                 confirmTimeout = setTimeout(() => {
                     delBtn.removeAttribute('data-confirming');
-                    delBtn.className = 'w-8 h-8 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0';
+                    delBtn.className = 'w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-[#F43F5E] flex items-center justify-center transition shrink-0 text-xs';
                     delBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
                 }, 2800);
             }
@@ -522,19 +532,19 @@ function renderHistoryList() {
     historyCountBadge.textContent = state.history.length;
     historyListContainer.innerHTML = '';
 
-    // Update Always-Visible Saved Spin Winners Strip & Stage Mode Winners Ticker
+    // Update Recent Results Strip & Stage Mode Winners Ticker
     if (recentWinnersStrip) {
         if (state.history.length === 0) {
-            recentWinnersStrip.innerHTML = '<span class="text-xs text-slate-500 italic">No winners yet — spin the wheel!</span>';
+            recentWinnersStrip.innerHTML = '<span class="text-xs text-slate-400">No results recorded yet.</span>';
         } else {
             recentWinnersStrip.innerHTML = '';
             state.history.forEach((item) => {
                 const badge = document.createElement('div');
-                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/90 border border-white/10 text-xs';
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1A1730] border border-white/15 text-xs';
                 badge.innerHTML = `
-                    <span class="font-mono text-[10px] font-bold text-amber-400">#${item.spinNumber}</span>
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}"></span>
-                    <span class="font-semibold text-white max-w-[130px] truncate">${escapeHtml(item.text)}</span>
+                    <span class="font-mono text-[10px] font-bold text-[#FF9419]">#${item.spinNumber}</span>
+                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${item.color}"></span>
+                    <span class="font-semibold text-slate-100 max-w-[130px] truncate">${escapeHtml(item.text)}</span>
                 `;
                 recentWinnersStrip.appendChild(badge);
             });
@@ -543,16 +553,16 @@ function renderHistoryList() {
 
     if (stageWinnersList) {
         if (state.history.length === 0) {
-            stageWinnersList.innerHTML = '<span class="text-xs text-slate-400 italic">Press SPACE or click the wheel to spin!</span>';
+            stageWinnersList.innerHTML = '<span class="text-xs text-slate-400">Press Space or click the wheel to begin</span>';
         } else {
             stageWinnersList.innerHTML = '';
             state.history.forEach((item) => {
                 const badge = document.createElement('div');
-                badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900/95 border border-amber-400/30 text-xs shrink-0 shadow';
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1A1730] border border-white/20 text-xs shrink-0';
                 badge.innerHTML = `
-                    <span class="font-mono text-xs font-bold text-amber-400">#${item.spinNumber}</span>
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}"></span>
-                    <span class="font-bold text-white max-w-[160px] truncate">${escapeHtml(item.text)}</span>
+                    <span class="font-mono text-[11px] font-bold text-[#FF9419]">#${item.spinNumber}</span>
+                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${item.color}"></span>
+                    <span class="font-semibold text-white max-w-[160px] truncate">${escapeHtml(item.text)}</span>
                 `;
                 stageWinnersList.appendChild(badge);
             });
@@ -562,16 +572,16 @@ function renderHistoryList() {
     if (state.history.length === 0) {
         leaderboardContainer.classList.add('hidden');
         historyListContainer.innerHTML = `
-            <div class="h-full flex flex-col items-center justify-center text-center py-12 text-slate-500">
-                <i class="fa-solid fa-trophy text-3xl mb-2 opacity-40"></i>
-                <p class="text-sm font-medium">No winners recorded yet</p>
-                <p class="text-xs">Every spin winner is automatically saved here!</p>
+            <div class="h-full flex flex-col items-center justify-center text-center py-12 text-slate-400">
+                <i class="fa-solid fa-trophy text-xl text-slate-600 mb-2"></i>
+                <p class="text-xs font-semibold text-slate-200">No spin results yet</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Completed spins are logged automatically.</p>
             </div>
         `;
         return;
     }
 
-    // Compute Win Counts per Winner Name for Leaderboard Summary
+    // Compute Win Counts per Winner Name for Frequency Summary
     const countsMap = new Map();
     state.history.forEach((item) => {
         const prev = countsMap.get(item.text) || { count: 0, color: item.color };
@@ -584,31 +594,31 @@ function renderHistoryList() {
     leaderboardPills.innerHTML = '';
     sortedLeaders.forEach(([name, info]) => {
         const pill = document.createElement('div');
-        pill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/90 border border-white/10 text-xs';
+        pill.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#231F3D] border border-white/10 text-xs';
         pill.innerHTML = `
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${info.color}"></span>
-            <span class="text-slate-200 font-medium max-w-[130px] truncate">${escapeHtml(name)}</span>
-            <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono font-bold text-[11px]">${info.count}x</span>
+            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${info.color}"></span>
+            <span class="text-slate-100 font-medium max-w-[125px] truncate">${escapeHtml(name)}</span>
+            <span class="px-1.5 rounded bg-[#2B99F2]/25 text-[#8BBBE0] font-mono font-bold text-[10px]">${info.count}×</span>
         `;
         leaderboardPills.appendChild(pill);
     });
 
     state.history.forEach((item, idx) => {
         const card = document.createElement('div');
-        card.className = 'flex items-center justify-between gap-2 bg-slate-900/75 border border-white/10 rounded-xl p-2.5 group';
+        card.className = 'flex items-center justify-between gap-2 bg-[#1A1730] border border-white/10 rounded-xl p-2.5 shadow-[0_2px_0_rgba(0,0,0,0.35)] group';
         card.innerHTML = `
             <div class="flex items-center gap-2.5 min-w-0">
-                <span class="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-300 font-mono text-xs font-bold shrink-0">
+                <span class="px-2 py-0.5 rounded-md bg-[#FF9419]/15 text-[#FF9419] font-mono font-bold text-[11px] shrink-0">
                     #${item.spinNumber}
                 </span>
-                <span class="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-white/20" style="background-color: ${item.color}"></span>
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}"></span>
                 <div class="truncate">
-                    <p class="text-sm font-semibold text-white truncate">${escapeHtml(item.text)}</p>
-                    <p class="text-[11px] text-slate-400">${item.date ? item.date + ' • ' : ''}${item.time}</p>
+                    <p class="text-xs sm:text-sm font-semibold text-white truncate">${escapeHtml(item.text)}</p>
+                    <p class="text-[11px] font-mono text-slate-400">${item.date ? item.date + ' · ' : ''}${item.time}</p>
                 </div>
             </div>
-            <button type="button" data-del-history="${idx}" class="w-7 h-7 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0" title="Remove this entry">
-                <i class="fa-solid fa-xmark text-xs"></i>
+            <button type="button" data-del-history="${idx}" class="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-[#F43F5E] flex items-center justify-center transition shrink-0 text-xs" title="Remove entry">
+                <i class="fa-solid fa-xmark"></i>
             </button>
         `;
         const delEntryBtn = card.querySelector('[data-del-history]');
@@ -622,12 +632,12 @@ function renderHistoryList() {
                 renderHistoryList();
             } else {
                 delEntryBtn.setAttribute('data-confirming', 'true');
-                delEntryBtn.className = 'px-1.5 h-6 rounded-md text-[10px] font-bold bg-rose-600/30 text-rose-300 border border-rose-400/50 flex items-center gap-1 transition shrink-0 animate-pulse';
-                delEntryBtn.innerHTML = 'Sure?';
+                delEntryBtn.className = 'game-btn game-btn-red px-2.5 h-7 text-[10px] flex items-center gap-1 shrink-0';
+                delEntryBtn.innerHTML = 'Confirm';
                 historyConfirmTimeout = setTimeout(() => {
                     delEntryBtn.removeAttribute('data-confirming');
-                    delEntryBtn.className = 'w-7 h-7 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition shrink-0';
-                    delEntryBtn.innerHTML = '<i class="fa-solid fa-xmark text-xs"></i>';
+                    delEntryBtn.className = 'w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-[#F43F5E] flex items-center justify-center transition shrink-0 text-xs';
+                    delEntryBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
                 }, 2800);
             }
         });
@@ -707,14 +717,15 @@ function addBulkItems(names, replaceAll = false) {
         return;
     }
 
+    const palette = getActivePalette();
     if (replaceAll) {
         state.options = names.map((text, i) => ({
             text,
-            color: VIBRANT_PALETTE[i % VIBRANT_PALETTE.length]
+            color: palette[i % palette.length]
         }));
     } else {
         names.forEach((text) => {
-            const nextColor = VIBRANT_PALETTE[state.options.length % VIBRANT_PALETTE.length];
+            const nextColor = palette[state.options.length % palette.length];
             state.options.push({ text, color: nextColor });
         });
     }
@@ -748,18 +759,18 @@ function setWheelFps(fps) {
     state.wheelFps = fps;
     if (fps === 30) {
         if (fps30Btn) {
-            fps30Btn.className = 'px-2.5 py-1 rounded-lg font-semibold bg-brand-600 text-white shadow-sm transition';
+            fps30Btn.className = 'px-2.5 py-0.5 rounded-lg font-semibold bg-gradient-to-b from-[#2B99F2] to-[#1675C9] text-white border border-white/30 shadow-sm transition';
         }
         if (fps60Btn) {
-            fps60Btn.className = 'px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition';
+            fps60Btn.className = 'px-2.5 py-0.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition';
         }
     } else {
         state.wheelFps = 60;
         if (fps60Btn) {
-            fps60Btn.className = 'px-2.5 py-1 rounded-lg font-semibold bg-brand-600 text-white shadow-sm transition';
+            fps60Btn.className = 'px-2.5 py-0.5 rounded-lg font-semibold bg-gradient-to-b from-[#2B99F2] to-[#1675C9] text-white border border-white/30 shadow-sm transition';
         }
         if (fps30Btn) {
-            fps30Btn.className = 'px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition';
+            fps30Btn.className = 'px-2.5 py-0.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition';
         }
     }
 }
@@ -788,13 +799,13 @@ if (toggleDramaCollapseBtn && dramaCheckboxesContainer) {
         if (isCollapsed) {
             dramaCheckboxesContainer.classList.remove('hidden');
             dramaCheckboxesContainer.classList.add('grid');
-            if (dramaCollapseIcon) dramaCollapseIcon.className = 'fa-solid fa-chevron-up text-[10px] transition-transform duration-200';
-            if (dramaCollapseLabel) dramaCollapseLabel.textContent = '(collapse)';
+            if (dramaCollapseIcon) dramaCollapseIcon.className = 'fa-solid fa-chevron-up text-[9px] transition-transform duration-200';
+            if (dramaCollapseLabel) dramaCollapseLabel.textContent = 'Collapse';
         } else {
             dramaCheckboxesContainer.classList.add('hidden');
             dramaCheckboxesContainer.classList.remove('grid');
-            if (dramaCollapseIcon) dramaCollapseIcon.className = 'fa-solid fa-chevron-down text-[10px] transition-transform duration-200';
-            if (dramaCollapseLabel) dramaCollapseLabel.textContent = '(expand)';
+            if (dramaCollapseIcon) dramaCollapseIcon.className = 'fa-solid fa-chevron-down text-[9px] transition-transform duration-200';
+            if (dramaCollapseLabel) dramaCollapseLabel.textContent = 'Expand';
         }
     });
 }
@@ -804,30 +815,30 @@ closeBulkDrawerBtn.addEventListener('click', () => toggleBulkDrawer(false));
 
 bulkNamesTextarea.addEventListener('input', () => {
     const count = parseBulkNames(bulkNamesTextarea.value).length;
-    bulkCountPreview.textContent = `${count} ${count === 1 ? 'name' : 'names'} detected`;
+    bulkCountPreview.textContent = `${count} ${count === 1 ? 'entry' : 'entries'} detected`;
 });
 
 bulkAppendBtn.addEventListener('click', () => {
     const names = parseBulkNames(bulkNamesTextarea.value);
     if (names.length === 0) {
-        showValidationNotice('Paste some names in the box first!');
+        showValidationNotice('Paste at least one entry first.');
         return;
     }
     addBulkItems(names, false);
     bulkNamesTextarea.value = '';
-    bulkCountPreview.textContent = '0 names detected';
+    bulkCountPreview.textContent = '0 entries detected';
     toggleBulkDrawer(false);
 });
 
 bulkReplaceBtn.addEventListener('click', () => {
     const names = parseBulkNames(bulkNamesTextarea.value);
     if (names.length < 2) {
-        showValidationNotice('Please paste at least 2 names to replace the wheel!');
+        showValidationNotice('Please provide at least 2 entries to replace the wheel.');
         return;
     }
     addBulkItems(names, true);
     bulkNamesTextarea.value = '';
-    bulkCountPreview.textContent = '0 names detected';
+    bulkCountPreview.textContent = '0 entries detected';
     toggleBulkDrawer(false);
 });
 
@@ -848,7 +859,11 @@ sortOptionsBtn.addEventListener('click', () => {
 });
 
 resetOptionsBtn.addEventListener('click', () => {
-    state.options = JSON.parse(JSON.stringify(PRESETS.prizes));
+    const palette = getActivePalette();
+    state.options = PRESETS.prizes.map((item, i) => ({
+        text: item.text,
+        color: palette[i % palette.length]
+    }));
     presetSelect.value = 'prizes';
     renderOptionsList();
     drawWheel();
@@ -858,7 +873,11 @@ resetOptionsBtn.addEventListener('click', () => {
 presetSelect.addEventListener('change', (e) => {
     const key = e.target.value;
     if (PRESETS[key]) {
-        state.options = JSON.parse(JSON.stringify(PRESETS[key]));
+        const palette = getActivePalette();
+        state.options = PRESETS[key].map((item, i) => ({
+            text: item.text,
+            color: palette[i % palette.length]
+        }));
         renderOptionsList();
         drawWheel();
     }
@@ -881,21 +900,21 @@ if (panelSoundThemeSelect) panelSoundThemeSelect.addEventListener('change', (e) 
 function updateBgmUI() {
     if (state.bgmEnabled) {
         if (bgmToggleBtn) {
-            bgmToggleBtn.className = 'h-10 px-2.5 sm:px-3 rounded-xl bg-pink-600/25 hover:bg-pink-600/40 text-pink-300 border border-pink-400/40 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold';
-            if (bgmIcon) bgmIcon.className = 'fa-solid fa-compact-disc animate-spin';
+            bgmToggleBtn.className = 'game-btn game-btn-blue h-9 px-3 flex items-center gap-1.5 text-xs shrink-0';
+            if (bgmIcon) bgmIcon.className = 'fa-solid fa-compact-disc animate-spin text-white text-[11px]';
             if (bgmStatusLabel) bgmStatusLabel.textContent = 'BGM On';
         }
-        if (panelBgmToggleIcon) panelBgmToggleIcon.className = 'fa-solid fa-pause text-[9px]';
+        if (panelBgmToggleIcon) panelBgmToggleIcon.className = 'fa-solid fa-pause text-[8px]';
         if (panelBgmToggleText) panelBgmToggleText.textContent = 'Stop';
         if (panelBgmTrackSelect) panelBgmTrackSelect.value = state.bgmTrack;
         if (bgmTrackSelect) bgmTrackSelect.value = state.bgmTrack;
     } else {
         if (bgmToggleBtn) {
-            bgmToggleBtn.className = 'h-10 px-2.5 sm:px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-white/10 flex items-center gap-1.5 transition shadow-sm text-xs font-semibold';
-            if (bgmIcon) bgmIcon.className = 'fa-solid fa-music';
+            bgmToggleBtn.className = 'game-btn game-btn-slate h-9 px-3 flex items-center gap-1.5 text-xs shrink-0';
+            if (bgmIcon) bgmIcon.className = 'fa-solid fa-music text-[#8BBBE0] text-[11px]';
             if (bgmStatusLabel) bgmStatusLabel.textContent = 'BGM Off';
         }
-        if (panelBgmToggleIcon) panelBgmToggleIcon.className = 'fa-solid fa-play text-[9px]';
+        if (panelBgmToggleIcon) panelBgmToggleIcon.className = 'fa-solid fa-play text-[8px]';
         if (panelBgmToggleText) panelBgmToggleText.textContent = 'Play';
         if (panelBgmTrackSelect) panelBgmTrackSelect.value = 'off';
     }
@@ -942,27 +961,27 @@ if (panelBgmTrackSelect) {
 soundToggleBtn.addEventListener('click', () => {
     state.soundEnabled = !state.soundEnabled;
     if (state.soundEnabled) {
-        soundIcon.className = 'fa-solid fa-volume-high';
-        soundToggleBtn.classList.replace('text-slate-500', 'text-amber-400');
+        soundIcon.className = 'fa-solid fa-volume-high text-xs';
+        soundToggleBtn.className = 'game-btn game-btn-orange game-circle-btn w-9 h-9 flex items-center justify-center shrink-0';
     } else {
-        soundIcon.className = 'fa-solid fa-volume-xmark';
-        soundToggleBtn.classList.replace('text-amber-400', 'text-slate-500');
+        soundIcon.className = 'fa-solid fa-volume-xmark text-xs';
+        soundToggleBtn.className = 'game-btn game-btn-slate game-circle-btn w-9 h-9 flex items-center justify-center shrink-0';
     }
 });
 
-// Tab Switching (Options vs History)
+// Tab Switching (Entries vs History)
 tabOptionsBtn.addEventListener('click', () => {
     optionsTabPanel.classList.remove('hidden');
     historyTabPanel.classList.add('hidden');
-    tabOptionsBtn.className = 'py-2.5 px-4 rounded-2xl font-display font-semibold text-sm flex items-center justify-center gap-2 bg-brand-600 text-white shadow-lg transition';
-    tabHistoryBtn.className = 'py-2.5 px-4 rounded-2xl font-display font-semibold text-sm flex items-center justify-center gap-2 text-slate-400 hover:text-white hover:bg-white/5 transition';
+    tabOptionsBtn.className = 'game-btn game-btn-blue py-2 px-3 text-xs flex items-center justify-center gap-2';
+    tabHistoryBtn.className = 'game-btn game-btn-slate py-2 px-3 text-xs flex items-center justify-center gap-2 opacity-85';
 });
 
 tabHistoryBtn.addEventListener('click', () => {
     historyTabPanel.classList.remove('hidden');
     optionsTabPanel.classList.add('hidden');
-    tabHistoryBtn.className = 'py-2.5 px-4 rounded-2xl font-display font-semibold text-sm flex items-center justify-center gap-2 bg-brand-600 text-white shadow-lg transition';
-    tabOptionsBtn.className = 'py-2.5 px-4 rounded-2xl font-display font-semibold text-sm flex items-center justify-center gap-2 text-slate-400 hover:text-white hover:bg-white/5 transition';
+    tabHistoryBtn.className = 'game-btn game-btn-blue py-2 px-3 text-xs flex items-center justify-center gap-2';
+    tabOptionsBtn.className = 'game-btn game-btn-slate py-2 px-3 text-xs flex items-center justify-center gap-2 opacity-85';
 });
 
 // Clear, Copy & Export History
@@ -1041,13 +1060,126 @@ if (donateModal) {
     });
 }
 
+// Theme / Color Palette Gallery Controls
+function applyTheme(themeId, recolorExistingSlices = true) {
+    const themeObj = THEMES[themeId] || THEMES.sunset;
+    state.theme = themeObj.id;
+
+    // 1. Update CSS Root Variables for Aurora Orbs, Surfaces & Buttons
+    const root = document.documentElement;
+    root.style.setProperty('--theme-accent-1', themeObj.accent1);
+    root.style.setProperty('--theme-accent-2', themeObj.accent2);
+    root.style.setProperty('--theme-accent-3', themeObj.accent3);
+    root.style.setProperty('--theme-accent-4', themeObj.accent4);
+    root.style.setProperty('--bg-base', themeObj.bgBase);
+    root.style.setProperty('--bg-panel', themeObj.bgPanel);
+
+    // Ensure high-contrast button text when theme accent gradient is light pastel
+    const btnNeedsDarkText = isLightHexColor(themeObj.accent1) || isLightHexColor(themeObj.accent2);
+    root.style.setProperty('--theme-btn-text', btnNeedsDarkText ? '#0F172A' : '#FFFFFF');
+
+    // 2. Update Navbar Swatch Dots & Label
+    if (activeThemeSwatches) {
+        activeThemeSwatches.innerHTML = themeObj.colors.slice(0, 4).map(c =>
+            `<span class="w-3 h-3 rounded-full border border-white shadow-sm" style="background:${c}"></span>`
+        ).join('');
+    }
+    if (activeThemeLabel) {
+        activeThemeLabel.textContent = themeObj.name;
+    }
+
+    // 3. Recolor current wheel options to match the new palette if requested
+    if (recolorExistingSlices && Array.isArray(state.options)) {
+        state.options.forEach((opt, i) => {
+            opt.color = themeObj.colors[i % themeObj.colors.length];
+        });
+        renderOptionsList();
+    } else {
+        saveStateToStorage();
+    }
+
+    renderThemeCards();
+    drawWheel();
+}
+
+function renderThemeCards() {
+    if (!themeCardsGrid) return;
+    themeCardsGrid.innerHTML = '';
+
+    Object.values(THEMES).forEach((t) => {
+        const isSelected = state.theme === t.id;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `text-left p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 cursor-pointer group ${
+            isSelected
+                ? 'bg-white/[0.1] border-white/50 shadow-lg'
+                : 'bg-black/30 hover:bg-white/[0.06] border-white/10 hover:border-white/25'
+        }`;
+
+        // Color Swatch Bar (like the reference palette cards)
+        const swatchBlocks = t.colors.map(hex => `
+            <div class="flex-1 h-12 first:rounded-l-lg last:rounded-r-lg transition-transform group-hover:scale-[1.01]" style="background-color: ${hex}" title="${hex}"></div>
+        `).join('');
+
+        // Hex codes row
+        const hexLabels = t.colors.map(hex => `
+            <span class="flex-1 text-center font-mono text-[9px] text-slate-400 truncate">${hex}</span>
+        `).join('');
+
+        card.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs sm:text-sm font-bold text-white">${escapeHtml(t.name)}</span>
+                        ${isSelected ? '<span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-white/20 text-white">Active</span>' : ''}
+                    </div>
+                    <p class="text-[11px] text-slate-400">${escapeHtml(t.subtitle)}</p>
+                </div>
+            </div>
+            <div class="w-full flex overflow-hidden rounded-lg p-1 bg-white/[0.06] border border-white/10 shadow-inner">
+                ${swatchBlocks}
+            </div>
+            <div class="w-full flex items-center justify-between px-0.5">
+                ${hexLabels}
+            </div>
+        `;
+
+        card.addEventListener('click', () => {
+            applyTheme(t.id, true);
+        });
+
+        themeCardsGrid.appendChild(card);
+    });
+}
+
+function openThemeModal() {
+    if (!themeModal) return;
+    renderThemeCards();
+    themeModal.classList.remove('hidden');
+    themeModal.classList.add('flex');
+}
+
+function closeThemeModal() {
+    if (!themeModal) return;
+    themeModal.classList.add('hidden');
+    themeModal.classList.remove('flex');
+}
+
+if (themePickerBtn) themePickerBtn.addEventListener('click', openThemeModal);
+if (closeThemeModalBtn) closeThemeModalBtn.addEventListener('click', closeThemeModal);
+if (themeModal) {
+    themeModal.addEventListener('click', (e) => {
+        if (e.target === themeModal) closeThemeModal();
+    });
+}
+
 let modalRemoveTimeout = null;
 modalRemoveWinnerBtn.addEventListener('click', () => {
     // Two-step confirmation on modal removal to prevent accidental taps
     if (modalRemoveWinnerBtn.getAttribute('data-confirming') === 'true') {
         clearTimeout(modalRemoveTimeout);
         modalRemoveWinnerBtn.removeAttribute('data-confirming');
-        modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-ban text-rose-400"></i><span>Remove Option</span>';
+        modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-trash-can text-xs"></i><span>Remove Entry</span>';
         if (state.lastWinnerIndex !== null && state.options.length > 2) {
             state.options.splice(state.lastWinnerIndex, 1);
             state.lastWinnerIndex = null;
@@ -1057,12 +1189,10 @@ modalRemoveWinnerBtn.addEventListener('click', () => {
         closeWinnerModal();
     } else {
         modalRemoveWinnerBtn.setAttribute('data-confirming', 'true');
-        modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i><span>Click again to confirm</span>';
-        modalRemoveWinnerBtn.classList.add('animate-pulse', 'border-rose-400/80');
+        modalRemoveWinnerBtn.innerHTML = '<span>Confirm Remove?</span>';
         modalRemoveTimeout = setTimeout(() => {
             modalRemoveWinnerBtn.removeAttribute('data-confirming');
-            modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-ban text-rose-400"></i><span>Remove Option</span>';
-            modalRemoveWinnerBtn.classList.remove('animate-pulse', 'border-rose-400/80');
+            modalRemoveWinnerBtn.innerHTML = '<i class="fa-solid fa-trash-can text-xs"></i><span>Remove Entry</span>';
         }, 3200);
     }
 });
@@ -1123,7 +1253,9 @@ window.addEventListener('keydown', (e) => {
 
     if (e.code === 'Space') {
         e.preventDefault();
-        if (donateModal && !donateModal.classList.contains('hidden')) {
+        if (themeModal && !themeModal.classList.contains('hidden')) {
+            closeThemeModal();
+        } else if (donateModal && !donateModal.classList.contains('hidden')) {
             closeDonateModal();
         } else if (!winnerModal.classList.contains('hidden')) {
             closeWinnerModal();
@@ -1131,7 +1263,9 @@ window.addEventListener('keydown', (e) => {
             triggerSpin();
         }
     } else if (e.key === 'Escape') {
-        if (donateModal && !donateModal.classList.contains('hidden')) {
+        if (themeModal && !themeModal.classList.contains('hidden')) {
+            closeThemeModal();
+        } else if (donateModal && !donateModal.classList.contains('hidden')) {
             closeDonateModal();
         } else if (document.body.classList.contains('stage-mode') && !document.fullscreenElement) {
             updateStageModeUI(false);
@@ -1145,6 +1279,7 @@ window.addEventListener('keydown', (e) => {
 // Initialize Application on Load
 function initApp() {
     loadStateFromStorage();
+    applyTheme(state.theme, false);
     renderOptionsList();
     renderHistoryList();
     resizeCanvas();
