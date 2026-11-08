@@ -415,19 +415,19 @@ function handleSpinWinner(winnerIdx) {
         streakBadge += ` · ${randomQuote}`;
     }
 
-    // Populate & Show Winner Modal with automatic high-contrast text color
+    // Populate & Show Winner Modal with automatic high-contrast text color & 3D depth
     const isLightBanner = isLightHexColor(winner.color);
-    modalWinnerBanner.style.backgroundColor = winner.color;
+    modalWinnerBanner.style.background = `linear-gradient(180deg, ${winner.color} 0%, ${winner.color}E6 100%)`;
     modalWinnerBanner.style.borderColor = '#FFFFFF';
-    modalWinnerBanner.style.boxShadow = `0 6px 0 rgba(0, 0, 0, 0.25), 0 12px 24px -4px ${winner.color}88, inset 0 2px 0 rgba(255, 255, 255, 0.45)`;
+    modalWinnerBanner.style.boxShadow = `0 6px 0 rgba(0, 0, 0, 0.35), 0 0 38px ${winner.color}99, inset 0 2px 0 rgba(255, 255, 255, 0.55)`;
     if (modalAmbientGlow) {
         modalAmbientGlow.style.backgroundColor = winner.color;
     }
     modalWinnerText.textContent = winner.text;
-    modalWinnerText.style.color = isLightBanner ? '#1E1B4B' : '#FFFFFF';
+    modalWinnerText.style.color = isLightBanner ? '#0F172A' : '#FFFFFF';
     modalWinnerText.style.textShadow = isLightBanner
-        ? '0 1px 0 rgba(255, 255, 255, 0.65)'
-        : '0 3px 0 rgba(0, 0, 0, 0.35)';
+        ? '0 1px 0 rgba(255, 255, 255, 0.75)'
+        : '0 3px 0 rgba(0, 0, 0, 0.38), 0 6px 14px rgba(0, 0, 0, 0.35)';
     modalSpinStats.textContent = `Spin #${state.history[0].spinNumber} · ${timestamp}${streakBadge}`;
     
     // Disable "Remove Option" button in modal if already auto-removed or <= 2 options left
@@ -1165,7 +1165,23 @@ function closeThemeModal() {
     themeModal.classList.remove('flex');
 }
 
-if (themePickerBtn) themePickerBtn.addEventListener('click', openThemeModal);
+function switchRandomNextTheme() {
+    const allThemeIds = Object.keys(THEMES);
+    const otherThemes = allThemeIds.filter(id => id !== state.theme);
+    const nextThemeId = otherThemes.length > 0
+        ? otherThemes[Math.floor(Math.random() * otherThemes.length)]
+        : allThemeIds[0];
+
+    applyTheme(nextThemeId, true);
+
+    if (state.soundEnabled) {
+        soundEngine.init().then(() => {
+            soundEngine.playTick(0.95);
+        });
+    }
+}
+
+if (themePickerBtn) themePickerBtn.addEventListener('click', switchRandomNextTheme);
 if (closeThemeModalBtn) closeThemeModalBtn.addEventListener('click', closeThemeModal);
 if (themeModal) {
     themeModal.addEventListener('click', (e) => {
@@ -1267,6 +1283,8 @@ window.addEventListener('keydown', (e) => {
             closeThemeModal();
         } else if (donateModal && !donateModal.classList.contains('hidden')) {
             closeDonateModal();
+        } else if (!winnerModal.classList.contains('hidden')) {
+            closeWinnerModal();
         } else if (document.body.classList.contains('stage-mode') && !document.fullscreenElement) {
             updateStageModeUI(false);
         }

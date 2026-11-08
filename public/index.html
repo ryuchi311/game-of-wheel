@@ -117,14 +117,14 @@
                     </select>
                 </div>
 
-                <!-- Theme / Color Palette Picker Button -->
-                <button id="themePickerBtn" type="button" class="game-btn game-btn-purple h-9 px-3 flex items-center gap-2 text-xs shrink-0" title="Choose Color Palette Theme">
+                <!-- Instant Random Theme Switcher Button -->
+                <button id="themePickerBtn" type="button" class="game-btn game-btn-purple h-9 px-3 flex items-center gap-2 text-xs shrink-0" title="Click to switch to a random color palette theme">
                     <span id="activeThemeSwatches" class="flex items-center -space-x-1">
                         <span class="w-2.5 h-2.5 rounded-full border border-white/80" style="background:#FF7602"></span>
                         <span class="w-2.5 h-2.5 rounded-full border border-white/80" style="background:#FF69A4"></span>
                         <span class="w-2.5 h-2.5 rounded-full border border-white/80" style="background:#8BBBE0"></span>
                     </span>
-                    <span id="activeThemeLabel" class="hidden lg:inline">Themes</span>
+                    <span id="activeThemeLabel" class="hidden lg:inline">Sunset Bloom</span>
                 </button>
 
                 <!-- Background Music Play/Pause Toggle -->
@@ -530,42 +530,53 @@
     </footer>
 
     <!-- Winner Result Modal -->
-    <div id="winnerModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-[#0B0914]/80 backdrop-blur-md overflow-hidden">
+    <div id="winnerModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-[#090712]/85 backdrop-blur-md overflow-hidden">
         
         <!-- Lively Ambient Glow Behind Card -->
-        <div id="modalAmbientGlow" class="absolute w-[420px] h-[420px] rounded-full blur-[110px] opacity-40 pointer-events-none transition-colors duration-500" style="background-color: #FF69A4;"></div>
+        <div id="modalAmbientGlow" class="absolute w-[480px] h-[480px] rounded-full blur-[120px] opacity-55 pointer-events-none transition-colors duration-500" style="background-color: #FF69A4;"></div>
 
         <!-- Result Card -->
-        <div class="game-clipboard-card animate-modal-pop max-w-md w-full text-center relative">
+        <div class="game-clipboard-card animate-modal-pop max-w-md w-full text-center relative mt-4">
             
             <!-- Close Button -->
             <button id="closeModalBtn" aria-label="Close Winner Modal" class="game-btn game-btn-slate game-circle-btn absolute top-4 right-4 w-8 h-8 flex items-center justify-center z-20">
                 <i class="fa-solid fa-xmark text-xs"></i>
             </button>
 
-            <div class="game-clipboard-inner p-6 sm:p-7">
-                <!-- Header Label -->
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF9419]/15 border border-[#FF9419]/35 text-[#FF9419] text-[11px] font-mono font-semibold uppercase tracking-widest mb-4">
-                    <i class="fa-solid fa-crown text-[10px]"></i>
+            <div class="game-clipboard-inner p-6 sm:p-7 relative overflow-visible">
+                <!-- Rotating Sunburst Rays Clip Wrapper -->
+                <div class="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                    <div class="winner-sunburst-rays"></div>
+                </div>
+
+                <!-- 3D Golden Trophy Crest -->
+                <div class="winner-trophy-crest">
+                    <i class="fa-solid fa-trophy text-2xl"></i>
+                </div>
+
+                <!-- Header Label + Decorative Stars -->
+                <div class="relative z-10 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FF9419]/15 border border-[#FF9419]/40 text-[#FFB800] text-[11px] font-mono font-bold uppercase tracking-widest mb-4 shadow-sm">
+                    <i class="fa-solid fa-star text-[9px] text-[#FFD43B]"></i>
                     <span>Selected Winner</span>
+                    <i class="fa-solid fa-star text-[9px] text-[#FFD43B]"></i>
                 </div>
                 
-                <!-- Winning Entry Banner -->
-                <div id="modalWinnerBanner" class="winner-banner-shimmer relative overflow-hidden my-2 py-6 px-5 rounded-xl border-2 border-white/40 shadow-xl transition-all" style="background-color: #FF7602;">
+                <!-- Winning Entry Stage Banner -->
+                <div id="modalWinnerBanner" class="winner-stage-card winner-banner-shimmer relative overflow-hidden my-2 py-7 px-6 shadow-2xl transition-all" style="background-color: #FF7602;">
                     <h2 id="modalWinnerText" class="font-display text-2xl sm:text-4xl font-extrabold text-white break-words tracking-tight">
                         Grand Prize
                     </h2>
                 </div>
 
-                <!-- Spin Telemetry Metadata -->
-                <div class="flex items-center justify-center mt-4 mb-6">
-                    <p id="modalSpinStats" class="text-xs font-mono text-slate-300">
+                <!-- Spin Telemetry Metadata Pill -->
+                <div class="relative z-10 flex items-center justify-center mt-5 mb-6">
+                    <p id="modalSpinStats" class="px-3.5 py-1 rounded-full bg-black/35 border border-white/10 text-xs font-mono text-slate-200">
                         Spin #1 · Recorded in history
                     </p>
                 </div>
 
                 <!-- Modal Actions -->
-                <div class="flex flex-col sm:flex-row gap-2.5">
+                <div class="relative z-10 flex flex-col sm:flex-row gap-2.5">
                     <button id="modalRemoveWinnerBtn" class="game-btn game-btn-red flex-1 py-2.5 px-4 text-xs sm:text-sm flex items-center justify-center gap-2">
                         <i class="fa-solid fa-trash-can text-xs"></i>
                         <span>Remove Entry</span>
