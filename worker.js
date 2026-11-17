@@ -10,12 +10,6 @@ export default {
         const url = new URL(request.url);
         const pathname = url.pathname;
 
-        // Clean URL rewrite for QR join portal (/join -> /join.html)
-        if (pathname === '/join' || pathname === '/join/') {
-            const joinUrl = new URL('/join.html' + url.search, url.origin);
-            return env.ASSETS.fetch(new Request(joinUrl, request));
-        }
-
         // Healthcheck endpoint
         if (pathname === '/api/health' || pathname === '/healthz') {
             return new Response(
