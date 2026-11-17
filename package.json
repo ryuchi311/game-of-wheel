@@ -1,11 +1,24 @@
 {
   "name": "game-of-wheel",
-  "version": "1.0.0",
-  "description": "Game of Wheel - Interactive Physics Prize & Decision Spinner",
+  "version": "1.2.0",
+  "description": "Game of Wheel — Interactive Physics Prize & Decision Spinner with Live QR Host Rooms",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "build": "echo \"Static assets ready in ./public\"",
     "run:bat": "run.bat"
-  }
+  },
+  "keywords": [
+    "wheel-spinner",
+    "random-name-picker",
+    "qr-live-game",
+    "cloudflare-pages",
+    "webrtc"
+  ],
+  "author": "Checago",
+  "license": "MIT"
 }

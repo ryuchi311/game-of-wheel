@@ -1,0 +1,3 @@
+# Cloudflare Pages URL Rewrites
+/join   /join.html  200
+/join/  /join.html  200

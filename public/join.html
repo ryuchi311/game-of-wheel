@@ -6,6 +6,16 @@
     <title>Join Live Wheel — Game of Wheel</title>
     <link rel="icon" type="image/png" href="/images/favicon.png">
     <!-- Tailwind CSS -->
+    <script>
+        (function () {
+            const origWarn = console.warn;
+            console.warn = function (...args) {
+                const msg = args[0] ? String(args[0]) : '';
+                if (msg.includes('cdn.tailwindcss.com')) return;
+                return origWarn.apply(console, args);
+            };
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,8 +23,9 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Canvas Confetti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Local Bundled Libraries (Confetti, PeerJS WebRTC) -->
+    <script src="/vendor/confetti.min.js"></script>
+    <script src="/vendor/peerjs.min.js"></script>
     <!-- Custom Styles -->
     <link rel="stylesheet" href="/css/styles.css">
     <script>
@@ -109,7 +120,7 @@
 
                         <button id="joinSubmitBtn" type="submit" class="spin-btn-3d w-full py-3.5 px-6 text-base font-extrabold tracking-wide flex items-center justify-center gap-2 mt-1">
                             <i class="fa-solid fa-paper-plane"></i>
-                            <span>Lock In My Name</span>
+                            <span id="joinSubmitText">Lock In My Name</span>
                         </button>
                     </form>
                 </div>
@@ -160,6 +171,7 @@
     </footer>
 
     <script>
+        const PEER_PREFIX = 'gow-room-v1-';
         const params = new URLSearchParams(window.location.search);
         const initialRoom = (params.get('room') || '').toUpperCase().trim();
 
@@ -174,6 +186,7 @@
         const joinErrorAlert = document.getElementById('joinErrorAlert');
         const joinErrorText = document.getElementById('joinErrorText');
         const joinSubmitBtn = document.getElementById('joinSubmitBtn');
+        const joinSubmitText = document.getElementById('joinSubmitText');
 
         const joinedPlayerName = document.getElementById('joinedPlayerName');
         const livePulseDot = document.getElementById('livePulseDot');
@@ -205,6 +218,8 @@
             ? new BroadcastChannel('gow_anti_cheat_sync')
             : null;
 
+        let peerClient = null;
+        let hostConn = null;
         let eventSource = null;
         let lastCelebratedWinnerId = null;
 
@@ -229,7 +244,45 @@
             joinErrorAlert.classList.add('hidden');
         }
 
-        function switchToLockedLobby(code, registeredName) {
+        function handleRoomUpdate(room) {
+            if (!room) return;
+            const count = Array.isArray(room.participants) ? room.participants.length : 0;
+            liveParticipantCount.textContent = `${count} ${count === 1 ? 'participant' : 'participants'} joined`;
+
+            if (room.status === 'spinning') {
+                livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF9419] animate-ping';
+                liveStatusTitle.textContent = '🎡 The wheel is spinning right now!';
+                liveWinnerCard.classList.add('hidden');
+                liveWinnerCard.classList.remove('flex');
+            } else if (room.status === 'winner' && room.lastWinner) {
+                const winnerText = room.lastWinner.text || '';
+                const isMe = winnerText.toLowerCase() === myName.toLowerCase();
+                livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#FFD43B]';
+                liveStatusTitle.textContent = isMe ? '🎉 YOU WON THE SPIN!' : `Winner selected: ${winnerText}`;
+
+                liveWinnerCard.classList.remove('hidden');
+                liveWinnerCard.classList.add('flex');
+                liveWinnerLabel.textContent = isMe ? '🎉 CONGRATULATIONS — YOU WON!' : '🏆 Spin Winner';
+                liveWinnerName.textContent = winnerText;
+
+                const winKey = `${room.lastWinner.spinNumber || ''}_${winnerText}`;
+                if (winKey !== lastCelebratedWinnerId) {
+                    lastCelebratedWinnerId = winKey;
+                    if (typeof confetti === 'function') {
+                        confetti({
+                            particleCount: isMe ? 110 : 45,
+                            spread: 80,
+                            origin: { y: 0.6 }
+                        });
+                    }
+                }
+            } else {
+                livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-ping';
+                liveStatusTitle.textContent = 'Waiting for host to spin...';
+            }
+        }
+
+        function switchToLockedLobby(code, registeredName, roomState = null) {
             currentRoomCode = code;
             myName = registeredName;
             localStorage.setItem('gow_participant_name', myName);
@@ -244,7 +297,9 @@
             joinedLobbySection.classList.remove('hidden');
             joinedLobbySection.classList.add('flex');
 
-            connectRoomEvents(code);
+            if (roomState) {
+                handleRoomUpdate(roomState);
+            }
         }
 
         // Listen for other tabs joining the same room and lock this tab immediately
@@ -264,79 +319,78 @@
             }
         });
 
-        function connectRoomEvents(code) {
-            if (eventSource) {
-                eventSource.close();
-            }
-            eventSource = new EventSource(`/api/rooms/${encodeURIComponent(code)}/events`);
-
-            const handleRoomUpdate = (room) => {
-                if (!room) return;
-                const count = Array.isArray(room.participants) ? room.participants.length : 0;
-                liveParticipantCount.textContent = `${count} ${count === 1 ? 'participant' : 'participants'} joined`;
-
-                if (room.status === 'spinning') {
-                    livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF9419] animate-ping';
-                    liveStatusTitle.textContent = '🎡 The wheel is spinning right now!';
-                    liveWinnerCard.classList.add('hidden');
-                    liveWinnerCard.classList.remove('flex');
-                } else if (room.status === 'winner' && room.lastWinner) {
-                    const winnerText = room.lastWinner.text || '';
-                    const isMe = winnerText.toLowerCase() === myName.toLowerCase();
-                    livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#FFD43B]';
-                    liveStatusTitle.textContent = isMe ? '🎉 YOU WON THE SPIN!' : `Winner selected: ${winnerText}`;
-
-                    liveWinnerCard.classList.remove('hidden');
-                    liveWinnerCard.classList.add('flex');
-                    liveWinnerLabel.textContent = isMe ? '🎉 CONGRATULATIONS — YOU WON!' : '🏆 Spin Winner';
-                    liveWinnerName.textContent = winnerText;
-
-                    const winKey = `${room.lastWinner.spinNumber || ''}_${winnerText}`;
-                    if (winKey !== lastCelebratedWinnerId) {
-                        lastCelebratedWinnerId = winKey;
-                        if (typeof confetti === 'function') {
-                            confetti({
-                                particleCount: isMe ? 110 : 45,
-                                spread: 80,
-                                origin: { y: 0.6 }
-                            });
-                        }
-                    }
-                } else {
-                    livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-ping';
-                    liveStatusTitle.textContent = 'Waiting for host to spin...';
+        /**
+         * Connect to Host via PeerJS WebRTC (works on wheel.chiprojects.com & anywhere online)
+         */
+        function getOrConnectPeerHost(code) {
+            return new Promise((resolve, reject) => {
+                if (hostConn && hostConn.open && currentRoomCode === code) {
+                    return resolve(hostConn);
                 }
-            };
+                if (typeof window.Peer !== 'function') {
+                    return reject(new Error('PeerJS unavailable'));
+                }
 
-            eventSource.addEventListener('room_state', (e) => {
-                try { handleRoomUpdate(JSON.parse(e.data)); } catch (err) {}
-            });
-            eventSource.addEventListener('participant_joined', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    handleRoomUpdate(data.room);
-                } catch (err) {}
-            });
-            eventSource.addEventListener('participant_updated', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    handleRoomUpdate(data.room);
-                } catch (err) {}
+                if (!peerClient || peerClient.destroyed) {
+                    peerClient = new window.Peer();
+                }
+
+                const connectToRoom = () => {
+                    const conn = peerClient.connect(`${PEER_PREFIX}${code}`, { reliable: true });
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Connection timeout — verify the Room Code and make sure the host has the wheel open.'));
+                    }, 8000);
+
+                    conn.on('open', () => {
+                        clearTimeout(timeout);
+                        hostConn = conn;
+                        currentRoomCode = code;
+                        resolve(conn);
+                    });
+
+                    conn.on('data', (msg) => {
+                        if (!msg || typeof msg !== 'object') return;
+                        if (msg.room) {
+                            handleRoomUpdate(msg.room);
+                        }
+                        if (msg.type === 'status_response' && msg.myParticipant && msg.myParticipant.name) {
+                            switchToLockedLobby(code, msg.myParticipant.name, msg.room);
+                        }
+                    });
+
+                    conn.on('error', (err) => {
+                        clearTimeout(timeout);
+                        reject(err);
+                    });
+                };
+
+                if (peerClient.open) {
+                    connectToRoom();
+                } else {
+                    peerClient.once('open', connectToRoom);
+                    peerClient.once('error', reject);
+                }
             });
         }
 
-        // Check on page load if this browser/device/cookie already joined this room (blocks multi-tab & refresh re-entry)
+        // Check on page load if this browser/device already joined this room
         async function checkAlreadyJoinedOnLoad() {
             if (!initialRoom) return;
+
+            // 1. Check localStorage lock for this specific room code
+            const savedRoomName = localStorage.getItem(`gow_joined_room_${initialRoom}`);
+            if (savedRoomName) {
+                switchToLockedLobby(initialRoom, savedRoomName);
+            }
+
+            // 2. Connect via P2P WebRTC to sync room state & verify device lock
             try {
-                const res = await fetch(
-                    `/api/rooms/${encodeURIComponent(initialRoom)}?cid=${encodeURIComponent(myClientId)}&fp=${encodeURIComponent(deviceFp)}`
-                );
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.myParticipant && data.myParticipant.name) {
-                    switchToLockedLobby(initialRoom, data.myParticipant.name);
-                }
+                const conn = await getOrConnectPeerHost(initialRoom);
+                conn.send({
+                    type: 'check_status',
+                    clientId: myClientId,
+                    deviceFp
+                });
             } catch (e) {}
         }
 
@@ -353,36 +407,60 @@
                 return;
             }
 
+            // Check localStorage lock first
+            const existingLocal = localStorage.getItem(`gow_joined_room_${code}`);
+            if (existingLocal) {
+                switchToLockedLobby(code, existingLocal);
+                return;
+            }
+
             joinSubmitBtn.disabled = true;
+            if (joinSubmitText) joinSubmitText.textContent = 'Connecting to Host...';
+
             try {
-                const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/join`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, clientId: myClientId, deviceFp })
+                const conn = await getOrConnectPeerHost(code);
+
+                await new Promise((resolve, reject) => {
+                    const respTimeout = setTimeout(() => {
+                        reject(new Error('Host did not respond in time. Please try again.'));
+                    }, 7000);
+
+                    const onData = (msg) => {
+                        if (!msg || typeof msg !== 'object') return;
+                        if (msg.type === 'join_success') {
+                            clearTimeout(respTimeout);
+                            conn.off('data', onData);
+                            const finalName = msg.participant.name;
+                            if (tabSyncChannel) {
+                                tabSyncChannel.postMessage({ type: 'LOCKED_JOIN', roomCode: code, name: finalName });
+                            }
+                            switchToLockedLobby(code, finalName, msg.room);
+                            resolve();
+                        } else if (msg.type === 'join_error') {
+                            clearTimeout(respTimeout);
+                            conn.off('data', onData);
+                            if (msg.alreadyJoined && msg.participant) {
+                                switchToLockedLobby(code, msg.participant.name, msg.room);
+                                resolve();
+                            } else {
+                                reject(new Error(msg.error || 'Could not join room.'));
+                            }
+                        }
+                    };
+
+                    conn.on('data', onData);
+                    conn.send({
+                        type: 'join_request',
+                        name,
+                        clientId: myClientId,
+                        deviceFp
+                    });
                 });
-                const data = await res.json();
-
-                // If server detected this device/tab already joined under an existing name, lock into that existing entry!
-                if (res.status === 409 && data.alreadyJoined && data.participant) {
-                    switchToLockedLobby(code, data.participant.name);
-                    return;
-                }
-
-                if (!res.ok) {
-                    showError(data.error || 'Unable to join room.');
-                    joinSubmitBtn.disabled = false;
-                    return;
-                }
-
-                const finalName = data.participant.name;
-                if (tabSyncChannel) {
-                    tabSyncChannel.postMessage({ type: 'LOCKED_JOIN', roomCode: code, name: finalName });
-                }
-                switchToLockedLobby(code, finalName);
             } catch (err) {
-                showError('Network error — make sure you are connected to the same Wi-Fi or host server.');
+                showError(err.message || 'Could not connect to room — verify the Room Code and keep the host wheel open.');
             } finally {
                 joinSubmitBtn.disabled = false;
+                if (joinSubmitText) joinSubmitText.textContent = 'Lock In My Name';
             }
         });
     </script>

@@ -6,6 +6,25 @@
 import { SCALE_NOTES, BGM_PATTERNS } from './config.js';
 import { state } from './state.js';
 
+let toneScriptPromise = null;
+
+function ensureToneLoaded() {
+    if (typeof window.Tone !== 'undefined') {
+        return Promise.resolve(window.Tone);
+    }
+    if (toneScriptPromise) return toneScriptPromise;
+
+    toneScriptPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = '/vendor/tone.min.js';
+        s.async = true;
+        s.onload = () => resolve(window.Tone);
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+    return toneScriptPromise;
+}
+
 class SoundEngine {
     constructor() {
         this.initialized = false;
@@ -26,6 +45,7 @@ class SoundEngine {
     async init() {
         if (this.initialized) return;
         try {
+            await ensureToneLoaded();
             await Tone.start();
 
             // 1. Crisp percussive peg click / woodblock

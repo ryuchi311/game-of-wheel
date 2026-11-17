@@ -32,6 +32,17 @@
     <meta name="twitter:image" content="/images/logo-banner.jpg">
 
     <!-- Tailwind CSS -->
+    <script>
+        // Suppress non-actionable CDN & AudioContext autoplay console warnings before user gesture
+        (function () {
+            const origWarn = console.warn;
+            console.warn = function (...args) {
+                const msg = args[0] ? String(args[0]) : '';
+                if (msg.includes('cdn.tailwindcss.com') || msg.includes('AudioContext was not allowed')) return;
+                return origWarn.apply(console, args);
+            };
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,12 +50,10 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Tone.js for procedural sound effects -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <!-- Canvas Confetti for celebrations -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- QRCode.js for instant local & online QR code rendering -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Local Bundled Libraries (Confetti, QRCode, PeerJS WebRTC) -->
+    <script src="/vendor/confetti.min.js"></script>
+    <script src="/vendor/qrcode.min.js"></script>
+    <script src="/vendor/peerjs.min.js"></script>
 
     <script>
         tailwind.config = {

@@ -1355,28 +1355,49 @@ window.addEventListener('resize', resizeCanvas);
 
 /**
  * ============================================================================
- * LIVE QR HOST GAME ENGINE (REAL-TIME SSE + QR CODE GENERATION)
+ * LIVE QR HOST GAME ENGINE (SERVERLESS P2P WEBRTC + LOCAL NODE API HYBRID)
+ * Works seamlessly on static hosts (wheel.chiprojects.com / Cloudflare / GitHub Pages)
+ * via PeerJS WebRTC DataChannels, and also supports local Node.js LAN rooms.
  * ============================================================================
  */
+const PEER_PREFIX = 'gow-room-v1-';
+
+function generateClientRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+}
+
 let liveRoom = {
     code: localStorage.getItem('gow_host_room_code') || null,
     hostToken: localStorage.getItem('gow_host_room_token') || null,
     isOpen: true,
+    strictOnePerDevice: true,
+    status: 'waiting',
+    lastWinner: null,
     participants: [],
     hasClearedDefaultsOnFirstJoin: false,
     suggestedOrigin: window.location.origin,
-    eventSource: null
+    mode: null,        // 'p2p' | 'api'
+    peer: null,        // PeerJS instance for serverless online hosting
+    peerConns: new Set(),
+    eventSource: null  // SSE instance for local Node server fallback
 };
 
 async function fetchSuggestedOrigin() {
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalHost) {
+        liveRoom.suggestedOrigin = window.location.origin;
+        return;
+    }
     try {
         const res = await fetch('/api/network-info');
         if (res.ok) {
             const info = await res.json();
-            if (
-                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-                info.suggestedOrigin
-            ) {
+            if (info && info.suggestedOrigin) {
                 liveRoom.suggestedOrigin = info.suggestedOrigin;
             }
         }
@@ -1407,6 +1428,36 @@ function renderQrCodeInto(container, text, size) {
 function updateQrCodeGraphics(joinUrl) {
     renderQrCodeInto(hostQrCodeContainer, joinUrl, 186);
     renderQrCodeInto(stageCornerQrCode, joinUrl, 100);
+}
+
+function getPublicRoomSnapshot() {
+    return {
+        code: liveRoom.code,
+        isOpen: liveRoom.isOpen,
+        strictOnePerDevice: liveRoom.strictOnePerDevice,
+        status: liveRoom.status,
+        lastWinner: liveRoom.lastWinner,
+        participants: liveRoom.participants.map(p => ({
+            id: p.id,
+            name: p.name,
+            joinedAt: p.joinedAt
+        }))
+    };
+}
+
+function broadcastPeerState(eventType = 'room_state', extra = {}) {
+    const payload = {
+        type: eventType,
+        room: getPublicRoomSnapshot(),
+        ...extra
+    };
+    for (const conn of liveRoom.peerConns) {
+        try {
+            if (conn.open) conn.send(payload);
+        } catch (e) {
+            liveRoom.peerConns.delete(conn);
+        }
+    }
 }
 
 function updateLiveHostUI() {
@@ -1524,6 +1575,170 @@ function addParticipantToWheel(participantName, isRename = false, oldName = null
     return true;
 }
 
+/**
+ * Handles incoming P2P WebRTC join/check messages from mobile participants (static hosting & online mode)
+ */
+function handlePeerClientMessage(conn, msg) {
+    if (!msg || typeof msg !== 'object') return;
+
+    const clientId = String(msg.clientId || '').trim().slice(0, 64);
+    const deviceFp = String(msg.deviceFp || '').trim().slice(0, 128);
+
+    // 1. Check status on page load (multi-tab & refresh lock)
+    if (msg.type === 'check_status') {
+        const myEntry = liveRoom.participants.find(p =>
+            (clientId && p.clientId === clientId) ||
+            (liveRoom.strictOnePerDevice && deviceFp && p.deviceFp === deviceFp)
+        );
+        conn.send({
+            type: 'status_response',
+            room: getPublicRoomSnapshot(),
+            myParticipant: myEntry ? { id: myEntry.id, name: myEntry.name, joinedAt: myEntry.joinedAt } : null
+        });
+        return;
+    }
+
+    // 2. Participant submits join request
+    if (msg.type === 'join_request') {
+        if (!liveRoom.isOpen) {
+            conn.send({
+                type: 'join_error',
+                error: 'This room is currently locked by the host.'
+            });
+            return;
+        }
+
+        const rawName = String(msg.name || '')
+            .replace(/[\u200B-\u200D\uFEFF]/g, '')
+            .trim()
+            .replace(/\s+/g, ' ')
+            .slice(0, 40);
+        const normName = normalizeEntryName(rawName);
+
+        if (!rawName || normName.length < 1) {
+            conn.send({
+                type: 'join_error',
+                error: 'Please enter a valid display name.'
+            });
+            return;
+        }
+
+        // Anti-Cheat 1: Check if this device/browser already joined
+        const existingDeviceEntry = liveRoom.participants.find(p =>
+            (clientId && p.clientId === clientId) ||
+            (liveRoom.strictOnePerDevice && deviceFp && p.deviceFp === deviceFp)
+        );
+        if (existingDeviceEntry) {
+            conn.send({
+                type: 'join_error',
+                alreadyJoined: true,
+                participant: { id: existingDeviceEntry.id, name: existingDeviceEntry.name, joinedAt: existingDeviceEntry.joinedAt },
+                room: getPublicRoomSnapshot(),
+                error: `You have already joined this room as "${existingDeviceEntry.name}". Only 1 entry per participant/device is allowed!`
+            });
+            return;
+        }
+
+        // Anti-Cheat 2: Check fuzzy duplicate name against room participants AND current wheel slices
+        const dupInRoom = liveRoom.participants.find(
+            p => p.normName === normName || p.name.toLowerCase() === rawName.toLowerCase()
+        );
+        const dupOnWheel = (
+            !(replaceWithParticipantsToggle && replaceWithParticipantsToggle.checked && !liveRoom.hasClearedDefaultsOnFirstJoin && liveRoom.participants.length === 0)
+        ) && state.options.find(
+            o => normalizeEntryName(o.text) === normName || o.text.trim().toLowerCase() === rawName.toLowerCase()
+        );
+
+        if (dupInRoom || dupOnWheel) {
+            const existingLabel = dupInRoom ? dupInRoom.name : dupOnWheel.text;
+            conn.send({
+                type: 'join_error',
+                error: `"${existingLabel}" is already on the wheel! Duplicate or lookalike names are blocked.`
+            });
+            return;
+        }
+
+        const participant = {
+            id: 'p_' + Math.random().toString(36).slice(2, 10),
+            name: rawName,
+            normName,
+            clientId,
+            deviceFp,
+            joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        liveRoom.participants.push(participant);
+
+        addParticipantToWheel(participant.name);
+        updateLiveHostUI();
+
+        if (!state.isSpinning && currentSliceLabel) {
+            currentSliceLabel.innerHTML = `<span class="text-[#4ADE80] font-bold">👋 ${escapeHtml(participant.name)} joined the wheel!</span>`;
+        }
+
+        conn.send({
+            type: 'join_success',
+            participant: { id: participant.id, name: participant.name, joinedAt: participant.joinedAt },
+            room: getPublicRoomSnapshot()
+        });
+
+        broadcastPeerState('participant_joined', {
+            participant: { id: participant.id, name: participant.name, joinedAt: participant.joinedAt }
+        });
+    }
+}
+
+function initPeerHostRoom(code) {
+    if (typeof window.Peer !== 'function') return false;
+    if (liveRoom.peer) {
+        try { liveRoom.peer.destroy(); } catch (e) {}
+        liveRoom.peer = null;
+        liveRoom.peerConns.clear();
+    }
+
+    const peerId = `${PEER_PREFIX}${code}`;
+    const peer = new window.Peer(peerId);
+    liveRoom.peer = peer;
+
+    peer.on('open', () => {
+        liveRoom.mode = 'p2p';
+        updateLiveHostUI();
+    });
+
+    peer.on('connection', (conn) => {
+        liveRoom.peerConns.add(conn);
+        conn.on('open', () => {
+            conn.send({
+                type: 'room_state',
+                room: getPublicRoomSnapshot()
+            });
+        });
+        conn.on('data', (data) => {
+            handlePeerClientMessage(conn, data);
+        });
+        conn.on('close', () => {
+            liveRoom.peerConns.delete(conn);
+        });
+        conn.on('error', () => {
+            liveRoom.peerConns.delete(conn);
+        });
+    });
+
+    peer.on('error', (err) => {
+        if (err && err.type === 'unavailable-id') {
+            // Room code collision on PeerJS broker; generate a fresh code
+            const nextCode = generateClientRoomCode();
+            liveRoom.code = nextCode;
+            localStorage.setItem('gow_host_room_code', nextCode);
+            const joinUrl = `${liveRoom.suggestedOrigin}/join.html?room=${nextCode}`;
+            if (hostJoinUrlInput) hostJoinUrlInput.value = joinUrl;
+            updateQrCodeGraphics(joinUrl);
+            initPeerHostRoom(nextCode);
+        }
+    });
+
+    return true;
+}
+
 function connectHostRoomStream(code) {
     if (liveRoom.eventSource) {
         liveRoom.eventSource.close();
@@ -1565,51 +1780,99 @@ function connectHostRoomStream(code) {
 
 async function ensureHostRoom(forceNew = false) {
     await fetchSuggestedOrigin();
-    try {
-        const res = await fetch('/api/rooms', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(
-                forceNew
-                    ? {}
-                    : { code: liveRoom.code, hostToken: liveRoom.hostToken }
-            )
-        });
-        if (!res.ok) return;
-        const roomData = await res.json();
 
-        liveRoom.code = roomData.code;
-        liveRoom.hostToken = roomData.hostToken;
-        liveRoom.isOpen = roomData.isOpen;
-        liveRoom.participants = roomData.participants || [];
-        if (forceNew) {
-            liveRoom.hasClearedDefaultsOnFirstJoin = false;
-        }
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(window.location.hostname);
 
-        localStorage.setItem('gow_host_room_code', liveRoom.code);
-        localStorage.setItem('gow_host_room_token', liveRoom.hostToken);
+    // 1. If running on a local Node server, try the local /api/rooms endpoint first
+    if (isLocalHost) {
+        try {
+            const res = await fetch('/api/rooms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(
+                    forceNew
+                        ? {}
+                        : { code: liveRoom.code, hostToken: liveRoom.hostToken }
+                )
+            });
+            if (res.ok) {
+                const roomData = await res.json();
+                liveRoom.mode = 'api';
+                liveRoom.code = roomData.code;
+                liveRoom.hostToken = roomData.hostToken;
+                liveRoom.isOpen = roomData.isOpen;
+                liveRoom.participants = roomData.participants || [];
+                if (forceNew) {
+                    liveRoom.hasClearedDefaultsOnFirstJoin = false;
+                }
 
-        const joinUrl = `${liveRoom.suggestedOrigin}/join?room=${liveRoom.code}`;
-        if (hostJoinUrlInput) {
-            hostJoinUrlInput.value = joinUrl;
-        }
-        updateQrCodeGraphics(joinUrl);
-        updateLiveHostUI();
-        connectHostRoomStream(liveRoom.code);
-    } catch (e) {
-        console.warn('Could not initialize live host room:', e);
+                localStorage.setItem('gow_host_room_code', liveRoom.code);
+                localStorage.setItem('gow_host_room_token', liveRoom.hostToken);
+
+                const joinUrl = `${liveRoom.suggestedOrigin}/join.html?room=${liveRoom.code}`;
+                if (hostJoinUrlInput) hostJoinUrlInput.value = joinUrl;
+                updateQrCodeGraphics(joinUrl);
+                updateLiveHostUI();
+                connectHostRoomStream(liveRoom.code);
+                // Also open P2P listener on the same room code so phones on cellular data can join too!
+                initPeerHostRoom(liveRoom.code);
+                return;
+            }
+        } catch (e) {}
     }
+
+    // 2. Serverless P2P WebRTC Mode (for wheel.chiprojects.com, Cloudflare Pages, GitHub Pages, etc. — zero 404s!)
+    if (forceNew || !liveRoom.code) {
+        liveRoom.code = generateClientRoomCode();
+        liveRoom.participants = [];
+        liveRoom.isOpen = true;
+        liveRoom.status = 'waiting';
+        liveRoom.lastWinner = null;
+        liveRoom.hasClearedDefaultsOnFirstJoin = false;
+        localStorage.setItem('gow_host_room_code', liveRoom.code);
+    }
+
+    const joinUrl = `${liveRoom.suggestedOrigin}/join.html?room=${liveRoom.code}`;
+    if (hostJoinUrlInput) {
+        hostJoinUrlInput.value = joinUrl;
+    }
+    updateQrCodeGraphics(joinUrl);
+    updateLiveHostUI();
+    initPeerHostRoom(liveRoom.code);
 }
 
 async function notifyLiveRoomState(payload) {
     if (!liveRoom.code) return;
-    try {
-        await fetch(`/api/rooms/${encodeURIComponent(liveRoom.code)}/state`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-    } catch (e) {}
+
+    if (typeof payload.isOpen === 'boolean') {
+        liveRoom.isOpen = payload.isOpen;
+    }
+    if (typeof payload.strictOnePerDevice === 'boolean') {
+        liveRoom.strictOnePerDevice = payload.strictOnePerDevice;
+    }
+    if (payload.status) {
+        liveRoom.status = payload.status;
+    }
+    if (payload.lastWinner !== undefined) {
+        liveRoom.lastWinner = payload.lastWinner;
+    }
+    if (payload.removeParticipantName) {
+        const target = String(payload.removeParticipantName).toLowerCase();
+        liveRoom.participants = liveRoom.participants.filter(p => p.name.toLowerCase() !== target);
+    }
+
+    updateLiveHostUI();
+    broadcastPeerState('room_state');
+
+    if (liveRoom.mode === 'api') {
+        try {
+            await fetch(`/api/rooms/${encodeURIComponent(liveRoom.code)}/state`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {}
+    }
 }
 
 async function openHostQrModal() {
