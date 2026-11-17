@@ -209,19 +209,18 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 404, { error: 'Room not found or expired.' });
         }
 
-        // GET /api/rooms/:code — Get current room state (plus caller's existing entry if already joined)
+        // GET /api/rooms/:code — Get current room state (plus caller's existing entry if already joined in another tab)
         if (!action && req.method === 'GET') {
             const cookies = parseCookies(req);
             const cookieToken = cookies[`gow_p_${code}`] || '';
             const queryCid = parsedUrl.searchParams.get('cid') || '';
-            const queryFp = parsedUrl.searchParams.get('fp') || '';
-            const netHash = getDeviceNetworkHash(req, queryFp);
 
-            const myEntry = room.participants.find(p =>
-                (cookieToken && p.cookieToken === cookieToken) ||
-                (queryCid && p.clientId === queryCid) ||
-                (room.strictOnePerDevice !== false && p.netHash === netHash)
-            );
+            const myEntry = (room.strictOnePerDevice !== false)
+                ? room.participants.find(p =>
+                    (cookieToken && p.cookieToken === cookieToken) ||
+                    (queryCid && p.clientId === queryCid)
+                )
+                : null;
 
             return sendJson(res, 200, {
                 ...getRoomPublicState(room),
@@ -280,20 +279,19 @@ const server = http.createServer(async (req, res) => {
 
                 const cookies = parseCookies(req);
                 let cookieToken = cookies[`gow_p_${code}`];
-                const netHash = getDeviceNetworkHash(req, deviceFp);
 
-                // 1. Check if this device/browser/tab already has a registered entry in this room
-                const existingEntry = room.participants.find(p =>
-                    (cookieToken && p.cookieToken === cookieToken) ||
-                    (clientId && p.clientId === clientId) ||
-                    (room.strictOnePerDevice !== false && p.netHash === netHash)
-                );
+                // 1. Anti-Multi-Tab Check: only block if the SAME browser profile (cookie or clientId) already joined in another tab
+                const existingEntry = (room.strictOnePerDevice !== false)
+                    ? room.participants.find(p =>
+                        (cookieToken && p.cookieToken === cookieToken) ||
+                        (clientId && p.clientId === clientId)
+                    )
+                    : null;
 
                 if (existingEntry) {
-                    // Lock entry: once joined, opening another tab or re-submitting cannot add a second slice or rename to someone else
                     if (body.allowRename !== true) {
                         return sendJson(res, 409, {
-                            error: `You have already joined this room as "${existingEntry.name}". Only 1 entry per participant/device is allowed!`,
+                            error: `You already joined in another tab as "${existingEntry.name}". Multiple tabs are not allowed!`,
                             alreadyJoined: true,
                             participant: { id: existingEntry.id, name: existingEntry.name, joinedAt: existingEntry.joinedAt },
                             room: getRoomPublicState(room)
@@ -325,7 +323,6 @@ const server = http.createServer(async (req, res) => {
                     normalizedName: normalizedNewName,
                     clientId: clientId || null,
                     cookieToken,
-                    netHash,
                     joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                 };
                 room.participants.push(participant);

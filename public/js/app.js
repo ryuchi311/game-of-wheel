@@ -1586,19 +1586,18 @@ function addParticipantToWheel(participantName, isRename = false, oldName = null
 
 /**
  * Handles incoming P2P WebRTC join/check messages from mobile participants (static hosting & online mode)
+ * Enforces Anti-Multi-Tab (via browser clientId) and Duplicate Name blocking without blocking separate devices/browsers.
  */
 function handlePeerClientMessage(conn, msg) {
     if (!msg || typeof msg !== 'object') return;
 
     const clientId = String(msg.clientId || '').trim().slice(0, 64);
-    const deviceFp = String(msg.deviceFp || '').trim().slice(0, 128);
 
-    // 1. Check status on page load (multi-tab & refresh lock)
+    // 1. Check status on page load (Anti-Multi-Tab & refresh lock for the same browser session)
     if (msg.type === 'check_status') {
-        const myEntry = liveRoom.participants.find(p =>
-            (clientId && p.clientId === clientId) ||
-            (liveRoom.strictOnePerDevice && deviceFp && p.deviceFp === deviceFp)
-        );
+        const myEntry = (liveRoom.strictOnePerDevice !== false && clientId)
+            ? liveRoom.participants.find(p => p.clientId === clientId)
+            : null;
         conn.send({
             type: 'status_response',
             room: getPublicRoomSnapshot(),
@@ -1632,18 +1631,17 @@ function handlePeerClientMessage(conn, msg) {
             return;
         }
 
-        // Anti-Cheat 1: Check if this device/browser already joined
-        const existingDeviceEntry = liveRoom.participants.find(p =>
-            (clientId && p.clientId === clientId) ||
-            (liveRoom.strictOnePerDevice && deviceFp && p.deviceFp === deviceFp)
-        );
-        if (existingDeviceEntry) {
+        // Anti-Multi-Tab: Check if this browser profile (clientId) already joined in another tab
+        const existingTabEntry = (liveRoom.strictOnePerDevice !== false && clientId)
+            ? liveRoom.participants.find(p => p.clientId === clientId)
+            : null;
+        if (existingTabEntry) {
             conn.send({
                 type: 'join_error',
                 alreadyJoined: true,
-                participant: { id: existingDeviceEntry.id, name: existingDeviceEntry.name, joinedAt: existingDeviceEntry.joinedAt },
+                participant: { id: existingTabEntry.id, name: existingTabEntry.name, joinedAt: existingTabEntry.joinedAt },
                 room: getPublicRoomSnapshot(),
-                error: `You have already joined this room as "${existingDeviceEntry.name}". Only 1 entry per participant/device is allowed!`
+                error: `You already joined in another tab as "${existingTabEntry.name}". Multiple tabs are not allowed!`
             });
             return;
         }
@@ -1672,7 +1670,6 @@ function handlePeerClientMessage(conn, msg) {
             name: rawName,
             normName,
             clientId,
-            deviceFp,
             joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
         liveRoom.participants.push(participant);
