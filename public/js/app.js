@@ -1784,50 +1784,91 @@ function connectHostRoomStream(code) {
     });
 }
 
+let hostPollInterval = null;
+
+function startHostRoomPolling(code) {
+    if (hostPollInterval) {
+        clearInterval(hostPollInterval);
+    }
+    hostPollInterval = setInterval(async () => {
+        if (!liveRoom.code || liveRoom.code !== code) return;
+        try {
+            const res = await fetch(`/api/rooms/${encodeURIComponent(code)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data || !Array.isArray(data.participants)) return;
+
+            liveRoom.isOpen = data.isOpen;
+            const existingNames = new Set(liveRoom.participants.map(p => p.name.toLowerCase()));
+            let addedNew = false;
+
+            data.participants.forEach((p) => {
+                if (!existingNames.has(p.name.toLowerCase())) {
+                    liveRoom.participants.push(p);
+                    existingNames.add(p.name.toLowerCase());
+                    addParticipantToWheel(p.name);
+                    addedNew = true;
+                    if (!state.isSpinning && currentSliceLabel) {
+                        currentSliceLabel.innerHTML = `<span class="text-[#4ADE80] font-bold">👋 ${escapeHtml(p.name)} joined the wheel!</span>`;
+                    }
+                }
+            });
+
+            if (addedNew || liveRoom.participants.length !== data.participants.length) {
+                liveRoom.participants = data.participants;
+                updateLiveHostUI();
+            }
+        } catch (e) {}
+    }, 1500);
+}
+
 async function ensureHostRoom(forceNew = false) {
     await fetchSuggestedOrigin();
 
-    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(window.location.hostname);
-
-    // 1. If running on a local Node server, try the local /api/rooms endpoint first
-    if (isLocalHost) {
-        try {
-            const res = await fetch('/api/rooms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(
-                    forceNew
-                        ? {}
-                        : { code: liveRoom.code, hostToken: liveRoom.hostToken }
-                )
-            });
-            if (res.ok) {
-                const roomData = await res.json();
-                liveRoom.mode = 'api';
-                liveRoom.code = roomData.code;
-                liveRoom.hostToken = roomData.hostToken;
-                liveRoom.isOpen = roomData.isOpen;
-                liveRoom.participants = roomData.participants || [];
-                if (forceNew) {
-                    liveRoom.hasClearedDefaultsOnFirstJoin = false;
-                }
-
-                localStorage.setItem('gow_host_room_code', liveRoom.code);
-                localStorage.setItem('gow_host_room_token', liveRoom.hostToken);
-
-                const joinUrl = `${liveRoom.suggestedOrigin}/join.html?room=${liveRoom.code}`;
-                if (hostJoinUrlInput) hostJoinUrlInput.value = joinUrl;
-                updateQrCodeGraphics(joinUrl);
-                updateLiveHostUI();
-                connectHostRoomStream(liveRoom.code);
-                // Also open P2P listener on the same room code so phones on cellular data can join too!
-                initPeerHostRoom(liveRoom.code);
-                return;
+    // 1. Always try the HTTP /api/rooms endpoint first (works on both Cloudflare Worker Durable Objects AND local Node server!)
+    try {
+        const res = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+                forceNew
+                    ? {}
+                    : { code: liveRoom.code, hostToken: liveRoom.hostToken }
+            )
+        });
+        if (res.ok) {
+            const roomData = await res.json();
+            liveRoom.mode = 'api';
+            liveRoom.code = roomData.code;
+            liveRoom.hostToken = roomData.hostToken;
+            liveRoom.isOpen = roomData.isOpen;
+            liveRoom.participants = roomData.participants || [];
+            if (forceNew) {
+                liveRoom.hasClearedDefaultsOnFirstJoin = false;
+            } else {
+                // Sync any participants already in the room onto the wheel
+                liveRoom.participants.forEach(p => addParticipantToWheel(p.name));
             }
-        } catch (e) {}
-    }
 
-    // 2. Serverless P2P WebRTC Mode (for wheel.chiprojects.com, Cloudflare Pages, GitHub Pages, etc. — zero 404s!)
+            localStorage.setItem('gow_host_room_code', liveRoom.code);
+            localStorage.setItem('gow_host_room_token', liveRoom.hostToken);
+
+            const joinUrl = `${liveRoom.suggestedOrigin}/join?room=${liveRoom.code}`;
+            if (hostJoinUrlInput) hostJoinUrlInput.value = joinUrl;
+            updateQrCodeGraphics(joinUrl);
+            updateLiveHostUI();
+
+            // Start HTTP polling for universal edge compatibility + SSE on local Node
+            startHostRoomPolling(liveRoom.code);
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                connectHostRoomStream(liveRoom.code);
+            }
+            initPeerHostRoom(liveRoom.code);
+            return;
+        }
+    } catch (e) {}
+
+    // 2. Fallback Serverless P2P WebRTC Mode (for pure static hosting like GitHub Pages)
     if (forceNew || !liveRoom.code) {
         liveRoom.code = generateClientRoomCode();
         liveRoom.participants = [];
@@ -1838,7 +1879,7 @@ async function ensureHostRoom(forceNew = false) {
         localStorage.setItem('gow_host_room_code', liveRoom.code);
     }
 
-    const joinUrl = `${liveRoom.suggestedOrigin}/join.html?room=${liveRoom.code}`;
+    const joinUrl = `${liveRoom.suggestedOrigin}/join?room=${liveRoom.code}`;
     if (hostJoinUrlInput) {
         hostJoinUrlInput.value = joinUrl;
     }

@@ -373,26 +373,22 @@
             });
         }
 
-        const isLocalLanHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(window.location.hostname);
+        let roomPollInterval = null;
 
-        function connectLocalSse(code) {
-            if (!isLocalLanHost) return;
-            try {
-                if (eventSource) eventSource.close();
-                eventSource = new EventSource(`/api/rooms/${encodeURIComponent(code)}/events`);
-                eventSource.addEventListener('room_state', (e) => {
-                    try { handleRoomUpdate(JSON.parse(e.data)); } catch (err) {}
-                });
-                eventSource.addEventListener('participant_joined', (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        if (data.room) handleRoomUpdate(data.room);
-                    } catch (err) {}
-                });
-            } catch (e) {}
+        function startRoomPolling(code) {
+            if (roomPollInterval) clearInterval(roomPollInterval);
+            roomPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/rooms/${encodeURIComponent(code)}?cid=${encodeURIComponent(myClientId)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        handleRoomUpdate(data);
+                    }
+                } catch (e) {}
+            }, 1800);
         }
 
-        // Check on page load if this browser/device already joined this room
+        // Check on page load if this browser tab already joined this room
         async function checkAlreadyJoinedOnLoad() {
             if (!initialRoom) return;
 
@@ -402,29 +398,26 @@
                 switchToLockedLobby(initialRoom, savedRoomName);
             }
 
-            // 2. If running on local LAN server, check /api/rooms/:code first
-            if (isLocalLanHost) {
-                try {
-                    const res = await fetch(`/api/rooms/${encodeURIComponent(initialRoom)}?cid=${encodeURIComponent(myClientId)}&fp=${encodeURIComponent(deviceFp)}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        handleRoomUpdate(data);
-                        if (data.myParticipant && data.myParticipant.name) {
-                            switchToLockedLobby(initialRoom, data.myParticipant.name, data);
-                        }
-                        connectLocalSse(initialRoom);
-                        return;
+            // 2. Check HTTP /api/rooms/:code first (works on Cloudflare Worker Durable Objects & local LAN server!)
+            try {
+                const res = await fetch(`/api/rooms/${encodeURIComponent(initialRoom)}?cid=${encodeURIComponent(myClientId)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    handleRoomUpdate(data);
+                    if (data.myParticipant && data.myParticipant.name) {
+                        switchToLockedLobby(initialRoom, data.myParticipant.name, data);
                     }
-                } catch (e) {}
-            }
+                    startRoomPolling(initialRoom);
+                    return;
+                }
+            } catch (e) {}
 
-            // 3. Connect via P2P WebRTC to sync room state & verify device lock
+            // 3. Fallback P2P WebRTC check
             try {
                 const conn = await getOrConnectPeerHost(initialRoom);
                 conn.send({
                     type: 'check_status',
-                    clientId: myClientId,
-                    deviceFp
+                    clientId: myClientId
                 });
             } catch (e) {}
         }
@@ -446,21 +439,24 @@
             const existingLocal = localStorage.getItem(`gow_joined_room_${code}`);
             if (existingLocal) {
                 switchToLockedLobby(code, existingLocal);
+                startRoomPolling(code);
                 return;
             }
 
             joinSubmitBtn.disabled = true;
-            if (joinSubmitText) joinSubmitText.textContent = 'Connecting to Host...';
+            if (joinSubmitText) joinSubmitText.textContent = 'Joining Wheel...';
 
             try {
-                // 1. Try local LAN HTTP API first when hosted on local network
-                if (isLocalLanHost) {
-                    try {
-                        const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/join`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name, clientId: myClientId, deviceFp })
-                        });
+                // 1. Primary: Join via HTTP API (/api/rooms/:code/join — works on Cloudflare Worker & local server across all 4G/5G/Wi-Fi networks!)
+                let apiHandled = false;
+                try {
+                    const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/join`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, clientId: myClientId })
+                    });
+                    const contentType = res.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
                         const data = await res.json();
                         if (res.ok && data.participant) {
                             const finalName = data.participant.name;
@@ -468,23 +464,26 @@
                                 tabSyncChannel.postMessage({ type: 'LOCKED_JOIN', roomCode: code, name: finalName });
                             }
                             switchToLockedLobby(code, finalName, data.room);
-                            connectLocalSse(code);
+                            startRoomPolling(code);
+                            apiHandled = true;
                             return;
                         } else if (res.status === 409 && data.alreadyJoined && data.participant) {
                             switchToLockedLobby(code, data.participant.name, data.room);
-                            connectLocalSse(code);
+                            startRoomPolling(code);
+                            apiHandled = true;
                             return;
                         } else if (data.error) {
+                            apiHandled = true;
                             throw new Error(data.error);
                         }
-                    } catch (lanErr) {
-                        if (lanErr.message && !lanErr.message.includes('Failed to fetch')) {
-                            throw lanErr;
-                        }
+                    }
+                } catch (apiErr) {
+                    if (apiHandled) {
+                        throw apiErr;
                     }
                 }
 
-                // 2. Connect via Serverless P2P WebRTC (for wheel.chiprojects.com & online hosting)
+                // 2. Fallback: Connect via Serverless P2P WebRTC (for pure static hosting)
                 const conn = await getOrConnectPeerHost(code);
 
                 await new Promise((resolve, reject) => {

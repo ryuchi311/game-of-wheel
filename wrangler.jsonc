@@ -11,6 +11,22 @@
       "/api/*"
     ]
   },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS_DO",
+        "class_name": "WheelRoomDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "WheelRoomDO"
+      ]
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
