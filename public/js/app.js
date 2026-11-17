@@ -1405,18 +1405,27 @@ async function fetchSuggestedOrigin() {
 }
 
 function renderQrCodeInto(container, text, size) {
-    if (!container) return;
+    if (!container || !text) return;
     container.innerHTML = '';
+
+    let rendered = false;
     if (typeof window.QRCode === 'function') {
-        new window.QRCode(container, {
-            text,
-            width: size,
-            height: size,
-            colorDark: '#0F172A',
-            colorLight: '#FFFFFF',
-            correctLevel: window.QRCode.CorrectLevel.M
-        });
-    } else {
+        try {
+            new window.QRCode(container, {
+                text,
+                width: size,
+                height: size,
+                colorDark: '#0F172A',
+                colorLight: '#FFFFFF',
+                correctLevel: window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.M : 0
+            });
+            rendered = container.querySelector('canvas, img') !== null;
+        } catch (e) {
+            rendered = false;
+        }
+    }
+
+    if (!rendered) {
         const img = document.createElement('img');
         img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
         img.alt = 'Join QR Code';
