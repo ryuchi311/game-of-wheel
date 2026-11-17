@@ -1,0 +1,19 @@
+{
+  "name": "game-of-wheel",
+  "account_id": "86ed831a03b7600842d0197a8a129547",
+  "main": "worker.js",
+  "compatibility_date": "2026-01-01",
+  "assets": {
+    "directory": "./public/",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/join",
+      "/join/",
+      "/api/*"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

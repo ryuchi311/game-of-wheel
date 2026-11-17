@@ -1,0 +1,45 @@
+name: Deploy to Cloudflare Workers (ryuchicago@gmail.com)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Validate & Deploy to Cloudflare (ryuchicago@gmail.com)
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: "86ed831a03b7600842d0197a8a129547"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify JavaScript syntax
+        run: |
+          node --check worker.js
+          node --check server.js
+          node --check public/js/app.js
+          node --check public/js/config.js
+          node --check public/js/state.js
+          node --check public/js/wheel.js
+          node --check public/js/sound.js
+          node --check public/js/confetti.js
+
+      - name: Deploy via Cloudflare Wrangler Action (if CLOUDFLARE_API_TOKEN secret is set)
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: "86ed831a03b7600842d0197a8a129547"
+          command: deploy
