@@ -417,6 +417,8 @@ function handleSpinWinner(winnerIdx) {
         text: winner.text,
         email: matchedParticipant ? (matchedParticipant.email || '') : '',
         phone: matchedParticipant ? (matchedParticipant.phone || '') : '',
+        device: matchedParticipant ? (matchedParticipant.device || '') : '',
+        ip: matchedParticipant ? (matchedParticipant.ip || '') : '',
         color: winner.color,
         time: timestamp,
         date: dateStr,
@@ -1157,12 +1159,14 @@ downloadHistoryBtn.addEventListener('click', () => {
         showValidationNotice('No winners to export yet!');
         return;
     }
-    const csvRows = ['Spin Number,Winner,Email,Phone Number,Date,Time'];
+    const csvRows = ['Spin Number,Winner,Email,Phone Number,Device,IP Address,Date,Time'];
     state.history.slice().reverse().forEach((h) => {
         const safeText = `"${String(h.text).replace(/"/g, '""')}"`;
         const safeEmail = `"${String(h.email || '').replace(/"/g, '""')}"`;
         const safePhone = `"${String(h.phone || '').replace(/"/g, '""')}"`;
-        csvRows.push(`${h.spinNumber},${safeText},${safeEmail},${safePhone},${h.date || ''},${h.time}`);
+        const safeDevice = `"${String(h.device || '').replace(/"/g, '""')}"`;
+        const safeIp = `"${String(h.ip || '').replace(/"/g, '""')}"`;
+        csvRows.push(`${h.spinNumber},${safeText},${safeEmail},${safePhone},${safeDevice},${safeIp},${h.date || ''},${h.time}`);
     });
     const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

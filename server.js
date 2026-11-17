@@ -95,6 +95,30 @@ function getDeviceNetworkHash(req, bodyDeviceFp = '') {
         .slice(0, 24);
 }
 
+function parseDeviceInfo(uaString) {
+    const ua = String(uaString || '');
+    if (!ua) return 'Unknown Device';
+
+    let device = 'Desktop';
+    if (/iPhone/i.test(ua)) device = 'iPhone';
+    else if (/iPad/i.test(ua)) device = 'iPad';
+    else if (/Android/i.test(ua)) {
+        const match = ua.match(/Android\s+[^;)]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
+        device = match && match[1] ? `Android (${match[1].trim()})` : 'Android Phone';
+    } else if (/Macintosh|Mac OS X/i.test(ua)) device = 'Mac';
+    else if (/Windows/i.test(ua)) device = 'Windows PC';
+    else if (/Linux/i.test(ua)) device = 'Linux PC';
+
+    let browser = '';
+    if (/Edg\//i.test(ua)) browser = 'Edge';
+    else if (/OPR\/|Opera/i.test(ua)) browser = 'Opera';
+    else if (/Chrome|CriOS/i.test(ua)) browser = 'Chrome';
+    else if (/Firefox|FxiOS/i.test(ua)) browser = 'Firefox';
+    else if (/Safari/i.test(ua)) browser = 'Safari';
+
+    return browser ? `${device} · ${browser}` : device;
+}
+
 function parseJsonBody(req) {
     return new Promise((resolve, reject) => {
         let body = '';
@@ -138,6 +162,8 @@ function getRoomPublicState(room) {
             name: p.name,
             email: p.email || '',
             phone: p.phone || '',
+            device: p.device || '',
+            ip: p.ip || '',
             joinedAt: p.joinedAt
         })),
         status: room.status,
@@ -274,6 +300,8 @@ const server = http.createServer(async (req, res) => {
                 const clientId = String(body.clientId || '').trim().slice(0, 64);
                 const email = String(body.email || '').trim().slice(0, 80);
                 const phone = String(body.phone || '').trim().slice(0, 24);
+                const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+                const device = parseDeviceInfo(req.headers['user-agent']);
                 const deviceFp = String(body.deviceFp || '').trim().slice(0, 128);
                 const normalizedNewName = normalizeNameForAntiCheat(rawName);
 
@@ -327,6 +355,8 @@ const server = http.createServer(async (req, res) => {
                     normalizedName: normalizedNewName,
                     email,
                     phone,
+                    device,
+                    ip,
                     clientId: clientId || null,
                     cookieToken,
                     joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })

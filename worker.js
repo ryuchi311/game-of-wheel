@@ -27,6 +27,30 @@ function generateRoomCode() {
     return code;
 }
 
+function parseDeviceInfo(uaString) {
+    const ua = String(uaString || '');
+    if (!ua) return 'Unknown Device';
+
+    let device = 'Desktop';
+    if (/iPhone/i.test(ua)) device = 'iPhone';
+    else if (/iPad/i.test(ua)) device = 'iPad';
+    else if (/Android/i.test(ua)) {
+        const match = ua.match(/Android\s+[^;)]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
+        device = match && match[1] ? `Android (${match[1].trim()})` : 'Android Phone';
+    } else if (/Macintosh|Mac OS X/i.test(ua)) device = 'Mac';
+    else if (/Windows/i.test(ua)) device = 'Windows PC';
+    else if (/Linux/i.test(ua)) device = 'Linux PC';
+
+    let browser = '';
+    if (/Edg\//i.test(ua)) browser = 'Edge';
+    else if (/OPR\/|Opera/i.test(ua)) browser = 'Opera';
+    else if (/Chrome|CriOS/i.test(ua)) browser = 'Chrome';
+    else if (/Firefox|FxiOS/i.test(ua)) browser = 'Firefox';
+    else if (/Safari/i.test(ua)) browser = 'Safari';
+
+    return browser ? `${device} · ${browser}` : device;
+}
+
 function jsonResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,
@@ -87,6 +111,8 @@ export class WheelRoomDO {
                 name: p.name,
                 email: p.email || '',
                 phone: p.phone || '',
+                device: p.device || '',
+                ip: p.ip || '',
                 joinedAt: p.joinedAt
             })),
             status: room.status || 'waiting',
@@ -156,6 +182,10 @@ export class WheelRoomDO {
             const clientId = String(body.clientId || '').trim().slice(0, 64);
             const email = String(body.email || '').trim().slice(0, 80);
             const phone = String(body.phone || '').trim().slice(0, 24);
+            const ip = request.headers.get('cf-connecting-ip')
+                || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+                || 'unknown';
+            const device = parseDeviceInfo(request.headers.get('user-agent'));
             const normalizedNewName = normalizeNameForAntiCheat(rawName);
 
             if (!rawName || normalizedNewName.length < 1) {
@@ -192,6 +222,8 @@ export class WheelRoomDO {
                 normalizedName: normalizedNewName,
                 email,
                 phone,
+                device,
+                ip,
                 clientId: clientId || null,
                 joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
             };
