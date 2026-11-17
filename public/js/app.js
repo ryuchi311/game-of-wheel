@@ -113,6 +113,27 @@ const themeModal = document.getElementById('themeModal');
 const closeThemeModalBtn = document.getElementById('closeThemeModalBtn');
 const themeCardsGrid = document.getElementById('themeCardsGrid');
 
+// Live QR Host Room DOM Elements
+const hostLiveBtn = document.getElementById('hostLiveBtn');
+const hostLiveCountBadge = document.getElementById('hostLiveCountBadge');
+const hostQrModal = document.getElementById('hostQrModal');
+const closeHostQrModalBtn = document.getElementById('closeHostQrModalBtn');
+const hostRoomCodeDisplay = document.getElementById('hostRoomCodeDisplay');
+const hostQrCodeContainer = document.getElementById('hostQrCodeContainer');
+const hostJoinUrlInput = document.getElementById('hostJoinUrlInput');
+const copyJoinUrlBtn = document.getElementById('copyJoinUrlBtn');
+const replaceWithParticipantsToggle = document.getElementById('replaceWithParticipantsToggle');
+const strictDeviceLockToggle = document.getElementById('strictDeviceLockToggle');
+const lockRoomToggleBtn = document.getElementById('lockRoomToggleBtn');
+const lockRoomIcon = document.getElementById('lockRoomIcon');
+const lockRoomText = document.getElementById('lockRoomText');
+const newRoomBtn = document.getElementById('newRoomBtn');
+const hostJoinedCountLabel = document.getElementById('hostJoinedCountLabel');
+const hostParticipantsList = document.getElementById('hostParticipantsList');
+const stageCornerQrWidget = document.getElementById('stageCornerQrWidget');
+const stageCornerQrCode = document.getElementById('stageCornerQrCode');
+const stageCornerRoomCode = document.getElementById('stageCornerRoomCode');
+
 /**
  * Helpers
  */
@@ -159,6 +180,8 @@ function triggerSpin() {
     soundEngine.init().then(() => {
         soundEngine.playSpinStart();
     });
+
+    notifyLiveRoomState({ status: 'spinning', lastWinner: null });
 
     state.isSpinning = true;
     state.isIdleMoving = false;
@@ -405,6 +428,17 @@ function handleSpinWinner(winnerIdx) {
         drawWheel();
     }
 
+    // Broadcast winner to connected mobile QR participants
+    notifyLiveRoomState({
+        status: 'winner',
+        lastWinner: {
+            text: winner.text,
+            color: winner.color,
+            spinNumber: state.history[0].spinNumber,
+            time: timestamp
+        }
+    });
+
     // Count how many times this winner has won in total
     const winCount = state.history.filter(h => h.text === winner.text).length;
     let streakBadge = winCount > 1 ? ` · ${winCount}× selected` : '';
@@ -446,6 +480,7 @@ function closeWinnerModal() {
     winnerModal.classList.add('hidden');
     winnerModal.classList.remove('flex');
     state.isIdleMoving = true;
+    notifyLiveRoomState({ status: 'waiting' });
 }
 
 /**
@@ -453,7 +488,31 @@ function closeWinnerModal() {
  * OPTIONS & HISTORY UI RENDERING
  * ============================================================================
  */
+function deduplicateCurrentOptions() {
+    if (!Array.isArray(state.options)) return 0;
+    const seen = new Set();
+    const unique = [];
+    let removed = 0;
+
+    for (const opt of state.options) {
+        const norm = normalizeEntryName(opt.text);
+        const key = norm || String(opt.text || '').trim().toLowerCase();
+        if (!key || seen.has(key)) {
+            removed++;
+            continue;
+        }
+        seen.add(key);
+        unique.push(opt);
+    }
+
+    if (removed > 0) {
+        state.options = unique;
+    }
+    return removed;
+}
+
 function renderOptionsList() {
+    deduplicateCurrentOptions();
     saveStateToStorage();
     optionCountBadge.textContent = state.options.length;
     optionsListContainer.innerHTML = '';
@@ -474,18 +533,50 @@ function renderOptionsList() {
             drawWheel();
         });
 
-        // Editable Text Input
+        // Editable Text Input with Live Duplicate Prevention
         const textInput = document.createElement('input');
         textInput.type = 'text';
         textInput.value = opt.text;
         textInput.maxLength = 40;
         textInput.setAttribute('aria-label', `Entry ${idx + 1} text`);
         textInput.className = 'flex-1 bg-transparent text-xs sm:text-sm font-medium text-slate-100 focus:outline-none focus:bg-[#131122] px-2 py-1 rounded-lg transition';
+
+        let lastValidText = opt.text;
+
         textInput.addEventListener('input', (e) => {
             const val = e.target.value.trim();
-            state.options[idx].text = val || `Entry ${idx + 1}`;
+            if (!val) return;
+            const norm = normalizeEntryName(val);
+            const isDup = state.options.some((o, otherIdx) =>
+                otherIdx !== idx &&
+                (normalizeEntryName(o.text) === norm || o.text.trim().toLowerCase() === val.toLowerCase())
+            );
+            if (isDup) {
+                textInput.classList.add('border', 'border-[#F43F5E]', 'text-[#F43F5E]');
+                showValidationNotice(`"${val}" is already on the wheel — duplicates are not allowed!`);
+                return;
+            }
+            textInput.classList.remove('border', 'border-[#F43F5E]', 'text-[#F43F5E]');
+            lastValidText = val;
+            state.options[idx].text = val;
             saveStateToStorage();
             drawWheel();
+        });
+
+        textInput.addEventListener('blur', () => {
+            const val = textInput.value.trim();
+            const norm = normalizeEntryName(val);
+            const isDup = !val || state.options.some((o, otherIdx) =>
+                otherIdx !== idx &&
+                (normalizeEntryName(o.text) === norm || o.text.trim().toLowerCase() === val.toLowerCase())
+            );
+            if (isDup) {
+                textInput.value = lastValidText;
+                textInput.classList.remove('border', 'border-[#F43F5E]', 'text-[#F43F5E]');
+                state.options[idx].text = lastValidText;
+                saveStateToStorage();
+                drawWheel();
+            }
         });
 
         // Delete Option Button with two-step confirmation safeguard
@@ -505,9 +596,13 @@ function renderOptionsList() {
 
             if (delBtn.getAttribute('data-confirming') === 'true') {
                 clearTimeout(confirmTimeout);
+                const removedEntry = state.options[idx];
                 state.options.splice(idx, 1);
                 renderOptionsList();
                 drawWheel();
+                if (removedEntry && removedEntry.text) {
+                    notifyLiveRoomState({ removeParticipantName: removedEntry.text });
+                }
             } else {
                 delBtn.setAttribute('data-confirming', 'true');
                 delBtn.className = 'game-btn game-btn-red px-2.5 h-7 text-[11px] flex items-center gap-1 shrink-0';
@@ -707,27 +802,69 @@ function parseBulkNames(rawText) {
         .filter(Boolean);
 }
 
+function normalizeEntryName(str) {
+    return String(str || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+}
+
 function addBulkItems(names, replaceAll = false) {
     if (names.length === 0) {
         showValidationNotice('Paste or enter at least 1 name first!');
         return;
     }
-    if (replaceAll && names.length < 2) {
-        showValidationNotice('Need at least 2 names to replace the whole wheel!');
+
+    // Deduplicate within the incoming batch itself (fuzzy anti-duplicate check)
+    const uniqueIncoming = [];
+    const seenNormalized = new Set();
+    let skippedDuplicates = 0;
+
+    for (const raw of names) {
+        const norm = normalizeEntryName(raw);
+        if (!norm) continue;
+        if (seenNormalized.has(norm)) {
+            skippedDuplicates++;
+            continue;
+        }
+        seenNormalized.add(norm);
+        uniqueIncoming.push(raw);
+    }
+
+    if (replaceAll && uniqueIncoming.length < 2) {
+        showValidationNotice('Need at least 2 unique names to replace the whole wheel!');
         return;
     }
 
     const palette = getActivePalette();
     if (replaceAll) {
-        state.options = names.map((text, i) => ({
+        state.options = uniqueIncoming.map((text, i) => ({
             text,
             color: palette[i % palette.length]
         }));
     } else {
-        names.forEach((text) => {
+        const existingNorms = new Set(state.options.map(o => normalizeEntryName(o.text)));
+        let addedCount = 0;
+        uniqueIncoming.forEach((text) => {
+            const norm = normalizeEntryName(text);
+            if (existingNorms.has(norm)) {
+                skippedDuplicates++;
+                return;
+            }
+            existingNorms.add(norm);
             const nextColor = palette[state.options.length % palette.length];
             state.options.push({ text, color: nextColor });
+            addedCount++;
         });
+        if (addedCount === 0 && skippedDuplicates > 0) {
+            showValidationNotice('Duplicate entry blocked — that name is already on the wheel!');
+            return;
+        }
+    }
+
+    if (skippedDuplicates > 0) {
+        showValidationNotice(`Skipped ${skippedDuplicates} duplicate ${skippedDuplicates === 1 ? 'name' : 'names'}.`);
     }
 
     renderOptionsList();
@@ -1216,6 +1353,327 @@ modalRemoveWinnerBtn.addEventListener('click', () => {
 // Window Resize Listener
 window.addEventListener('resize', resizeCanvas);
 
+/**
+ * ============================================================================
+ * LIVE QR HOST GAME ENGINE (REAL-TIME SSE + QR CODE GENERATION)
+ * ============================================================================
+ */
+let liveRoom = {
+    code: localStorage.getItem('gow_host_room_code') || null,
+    hostToken: localStorage.getItem('gow_host_room_token') || null,
+    isOpen: true,
+    participants: [],
+    hasClearedDefaultsOnFirstJoin: false,
+    suggestedOrigin: window.location.origin,
+    eventSource: null
+};
+
+async function fetchSuggestedOrigin() {
+    try {
+        const res = await fetch('/api/network-info');
+        if (res.ok) {
+            const info = await res.json();
+            if (
+                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+                info.suggestedOrigin
+            ) {
+                liveRoom.suggestedOrigin = info.suggestedOrigin;
+            }
+        }
+    } catch (e) {}
+}
+
+function renderQrCodeInto(container, text, size) {
+    if (!container) return;
+    container.innerHTML = '';
+    if (typeof window.QRCode === 'function') {
+        new window.QRCode(container, {
+            text,
+            width: size,
+            height: size,
+            colorDark: '#0F172A',
+            colorLight: '#FFFFFF',
+            correctLevel: window.QRCode.CorrectLevel.M
+        });
+    } else {
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+        img.alt = 'Join QR Code';
+        img.className = 'w-full h-full object-contain';
+        container.appendChild(img);
+    }
+}
+
+function updateQrCodeGraphics(joinUrl) {
+    renderQrCodeInto(hostQrCodeContainer, joinUrl, 186);
+    renderQrCodeInto(stageCornerQrCode, joinUrl, 100);
+}
+
+function updateLiveHostUI() {
+    if (!liveRoom.code) return;
+    if (hostRoomCodeDisplay) hostRoomCodeDisplay.textContent = liveRoom.code;
+    if (stageCornerRoomCode) stageCornerRoomCode.textContent = liveRoom.code;
+
+    const count = liveRoom.participants.length;
+    if (hostJoinedCountLabel) {
+        hostJoinedCountLabel.textContent = `${count} ${count === 1 ? 'participant' : 'participants'} joined`;
+    }
+    if (hostLiveCountBadge) {
+        if (count > 0) {
+            hostLiveCountBadge.textContent = count;
+            hostLiveCountBadge.classList.remove('hidden');
+        } else {
+            hostLiveCountBadge.classList.add('hidden');
+        }
+    }
+
+    if (lockRoomIcon && lockRoomText) {
+        if (liveRoom.isOpen) {
+            lockRoomIcon.className = 'fa-solid fa-lock-open text-[10px] text-[#4ADE80]';
+            lockRoomText.textContent = 'Open';
+        } else {
+            lockRoomIcon.className = 'fa-solid fa-lock text-[10px] text-[#F43F5E]';
+            lockRoomText.textContent = 'Locked';
+        }
+    }
+
+    if (hostParticipantsList) {
+        if (count === 0) {
+            hostParticipantsList.innerHTML = '<span class="text-xs text-slate-500 m-auto">Waiting for players to scan the QR code...</span>';
+        } else {
+            hostParticipantsList.innerHTML = '';
+            const palette = getActivePalette();
+            liveRoom.participants.slice().reverse().forEach((p, idx) => {
+                const color = palette[(count - 1 - idx) % palette.length];
+                const pill = document.createElement('div');
+                pill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1C1933] border border-white/15 text-xs';
+                pill.innerHTML = `
+                    <span class="w-2 h-2 rounded-full shrink-0" style="background:${color}"></span>
+                    <span class="font-semibold text-white max-w-[140px] truncate">${escapeHtml(p.name)}</span>
+                `;
+                hostParticipantsList.appendChild(pill);
+            });
+        }
+    }
+
+    // Show floating Stage Corner QR badge whenever in Stage Mode and a room is active
+    if (stageCornerQrWidget) {
+        if (document.body.classList.contains('stage-mode') && liveRoom.code) {
+            stageCornerQrWidget.classList.remove('hidden');
+            stageCornerQrWidget.classList.add('flex');
+        } else {
+            stageCornerQrWidget.classList.add('hidden');
+            stageCornerQrWidget.classList.remove('flex');
+        }
+    }
+}
+
+function addParticipantToWheel(participantName, isRename = false, oldName = null) {
+    if (!participantName) return false;
+    const palette = getActivePalette();
+    const incomingNorm = normalizeEntryName(participantName);
+
+    if (isRename && oldName) {
+        const oldNorm = normalizeEntryName(oldName);
+        const existingOpt = state.options.find(
+            o => normalizeEntryName(o.text) === oldNorm || o.text.toLowerCase() === oldName.toLowerCase()
+        );
+        if (existingOpt) {
+            existingOpt.text = participantName;
+            renderOptionsList();
+            drawWheel();
+            return true;
+        }
+    }
+
+    // Check if this name (or normalized lookalike) is ALREADY on the wheel before adding
+    const alreadyOnWheel = state.options.some(
+        o => normalizeEntryName(o.text) === incomingNorm || o.text.trim().toLowerCase() === participantName.trim().toLowerCase()
+    );
+
+    // If "Clear default slices on 1st join" is checked and this is the first participant, replace default preset slices
+    if (
+        replaceWithParticipantsToggle &&
+        replaceWithParticipantsToggle.checked &&
+        !liveRoom.hasClearedDefaultsOnFirstJoin &&
+        liveRoom.participants.length <= 1
+    ) {
+        liveRoom.hasClearedDefaultsOnFirstJoin = true;
+        state.options = [
+            { text: participantName, color: palette[0] }
+        ];
+    } else if (alreadyOnWheel) {
+        return false;
+    } else {
+        const nextColor = palette[state.options.length % palette.length];
+        state.options.push({ text: participantName, color: nextColor });
+    }
+
+    renderOptionsList();
+    drawWheel();
+    if (optionsListContainer) {
+        optionsListContainer.scrollTop = optionsListContainer.scrollHeight;
+    }
+
+    // Play a subtle chime when a participant joins live
+    if (state.soundEnabled && !state.isSpinning) {
+        soundEngine.init().then(() => {
+            soundEngine.playTick(0.9);
+        });
+    }
+    return true;
+}
+
+function connectHostRoomStream(code) {
+    if (liveRoom.eventSource) {
+        liveRoom.eventSource.close();
+    }
+    const es = new EventSource(`/api/rooms/${encodeURIComponent(code)}/events`);
+    liveRoom.eventSource = es;
+
+    es.addEventListener('room_state', (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            liveRoom.isOpen = data.isOpen;
+            liveRoom.participants = data.participants || [];
+            updateLiveHostUI();
+        } catch (err) {}
+    });
+
+    es.addEventListener('participant_joined', (e) => {
+        try {
+            const { participant, room } = JSON.parse(e.data);
+            liveRoom.participants = room.participants || [];
+            liveRoom.isOpen = room.isOpen;
+            addParticipantToWheel(participant.name);
+            updateLiveHostUI();
+            if (!state.isSpinning && currentSliceLabel) {
+                currentSliceLabel.innerHTML = `<span class="text-[#4ADE80] font-bold">👋 ${escapeHtml(participant.name)} joined the wheel!</span>`;
+            }
+        } catch (err) {}
+    });
+
+    es.addEventListener('participant_updated', (e) => {
+        try {
+            const { participant, room } = JSON.parse(e.data);
+            liveRoom.participants = room.participants || [];
+            addParticipantToWheel(participant.name);
+            updateLiveHostUI();
+        } catch (err) {}
+    });
+}
+
+async function ensureHostRoom(forceNew = false) {
+    await fetchSuggestedOrigin();
+    try {
+        const res = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+                forceNew
+                    ? {}
+                    : { code: liveRoom.code, hostToken: liveRoom.hostToken }
+            )
+        });
+        if (!res.ok) return;
+        const roomData = await res.json();
+
+        liveRoom.code = roomData.code;
+        liveRoom.hostToken = roomData.hostToken;
+        liveRoom.isOpen = roomData.isOpen;
+        liveRoom.participants = roomData.participants || [];
+        if (forceNew) {
+            liveRoom.hasClearedDefaultsOnFirstJoin = false;
+        }
+
+        localStorage.setItem('gow_host_room_code', liveRoom.code);
+        localStorage.setItem('gow_host_room_token', liveRoom.hostToken);
+
+        const joinUrl = `${liveRoom.suggestedOrigin}/join?room=${liveRoom.code}`;
+        if (hostJoinUrlInput) {
+            hostJoinUrlInput.value = joinUrl;
+        }
+        updateQrCodeGraphics(joinUrl);
+        updateLiveHostUI();
+        connectHostRoomStream(liveRoom.code);
+    } catch (e) {
+        console.warn('Could not initialize live host room:', e);
+    }
+}
+
+async function notifyLiveRoomState(payload) {
+    if (!liveRoom.code) return;
+    try {
+        await fetch(`/api/rooms/${encodeURIComponent(liveRoom.code)}/state`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } catch (e) {}
+}
+
+async function openHostQrModal() {
+    if (!hostQrModal) return;
+    if (!liveRoom.code) {
+        await ensureHostRoom(false);
+    } else {
+        updateLiveHostUI();
+    }
+    hostQrModal.classList.remove('hidden');
+    hostQrModal.classList.add('flex');
+}
+
+function closeHostQrModal() {
+    if (!hostQrModal) return;
+    hostQrModal.classList.add('hidden');
+    hostQrModal.classList.remove('flex');
+}
+
+if (hostLiveBtn) hostLiveBtn.addEventListener('click', openHostQrModal);
+if (stageCornerQrWidget) stageCornerQrWidget.addEventListener('click', openHostQrModal);
+if (closeHostQrModalBtn) closeHostQrModalBtn.addEventListener('click', closeHostQrModal);
+if (hostQrModal) {
+    hostQrModal.addEventListener('click', (e) => {
+        if (e.target === hostQrModal) closeHostQrModal();
+    });
+}
+
+if (hostJoinUrlInput) {
+    hostJoinUrlInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        if (val) updateQrCodeGraphics(val);
+    });
+}
+
+if (copyJoinUrlBtn && hostJoinUrlInput) {
+    copyJoinUrlBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(hostJoinUrlInput.value).then(() => {
+            const orig = copyJoinUrlBtn.innerHTML;
+            copyJoinUrlBtn.innerHTML = '<i class="fa-solid fa-check text-white text-[11px]"></i><span>Copied!</span>';
+            setTimeout(() => { copyJoinUrlBtn.innerHTML = orig; }, 1600);
+        });
+    });
+}
+
+if (lockRoomToggleBtn) {
+    lockRoomToggleBtn.addEventListener('click', async () => {
+        const nextOpen = !liveRoom.isOpen;
+        await notifyLiveRoomState({ isOpen: nextOpen });
+    });
+}
+
+if (newRoomBtn) {
+    newRoomBtn.addEventListener('click', async () => {
+        await ensureHostRoom(true);
+    });
+}
+
+if (strictDeviceLockToggle) {
+    strictDeviceLockToggle.addEventListener('change', async (e) => {
+        await notifyLiveRoomState({ strictOnePerDevice: e.target.checked });
+    });
+}
+
 // Stage Big-Screen Fullscreen Mode & Keyboard Shortcuts
 function updateStageModeUI(isStage) {
     if (isStage) {
@@ -1227,6 +1685,7 @@ function updateStageModeUI(isStage) {
         stageModeIcon.className = 'fa-solid fa-expand';
         stageModeText.textContent = 'Stage Mode';
     }
+    updateLiveHostUI();
     requestAnimationFrame(() => {
         resizeCanvas();
         setTimeout(resizeCanvas, 80);
@@ -1269,7 +1728,9 @@ window.addEventListener('keydown', (e) => {
 
     if (e.code === 'Space') {
         e.preventDefault();
-        if (themeModal && !themeModal.classList.contains('hidden')) {
+        if (hostQrModal && !hostQrModal.classList.contains('hidden')) {
+            closeHostQrModal();
+        } else if (themeModal && !themeModal.classList.contains('hidden')) {
             closeThemeModal();
         } else if (donateModal && !donateModal.classList.contains('hidden')) {
             closeDonateModal();
@@ -1279,7 +1740,9 @@ window.addEventListener('keydown', (e) => {
             triggerSpin();
         }
     } else if (e.key === 'Escape') {
-        if (themeModal && !themeModal.classList.contains('hidden')) {
+        if (hostQrModal && !hostQrModal.classList.contains('hidden')) {
+            closeHostQrModal();
+        } else if (themeModal && !themeModal.classList.contains('hidden')) {
             closeThemeModal();
         } else if (donateModal && !donateModal.classList.contains('hidden')) {
             closeDonateModal();
@@ -1291,6 +1754,9 @@ window.addEventListener('keydown', (e) => {
     } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         toggleStageMode();
+    } else if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
+        openHostQrModal();
     }
 });
 
@@ -1301,6 +1767,7 @@ function initApp() {
     renderOptionsList();
     renderHistoryList();
     resizeCanvas();
+    ensureHostRoom(false);
     requestAnimationFrame(updatePhysics);
 }
 

@@ -43,6 +43,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <!-- Canvas Confetti for celebrations -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- QRCode.js for instant local & online QR code rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -142,6 +144,13 @@
                 <button id="donateBtn" type="button" class="game-btn game-btn-red h-9 px-3 flex items-center gap-1.5 text-xs shrink-0" title="Support the Developer">
                     <i class="fa-solid fa-heart text-white text-[11px]"></i>
                     <span class="hidden sm:inline">Support</span>
+                </button>
+
+                <!-- Live QR Host Game Button -->
+                <button id="hostLiveBtn" type="button" class="game-btn game-btn-blue h-9 px-3.5 flex items-center gap-1.5 text-xs shrink-0" title="Host Live QR Game — let participants join via QR code">
+                    <i class="fa-solid fa-qrcode text-[11px]"></i>
+                    <span class="hidden sm:inline">Host QR</span>
+                    <span id="hostLiveCountBadge" class="hidden px-1.5 py-0.2 rounded-full bg-black/35 text-[#4ADE80] font-mono text-[10px]">0</span>
                 </button>
 
                 <!-- Stage Big-Screen Fullscreen Button -->
@@ -509,22 +518,47 @@
 
     <!-- Application Footer (Auto-hidden in Stage Mode) -->
     <footer id="appFooter" class="border-t border-white/10 bg-[#110F1E]/90 backdrop-blur-md py-5 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <div class="flex items-center gap-2.5">
-                <img src="/images/logo-icon.png" alt="Game of Wheel Logo" class="w-5 h-5 rounded object-cover">
-                <span class="font-bold text-slate-200">Game of Wheel</span>
-                <span>·</span>
-                <span>Physics Prize &amp; Decision Spinner</span>
-            </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+            <!-- Featured Sister Game Banner -->
+            <a href="https://ducks.chiprojects.com/" target="_blank" rel="noopener noreferrer"
+               class="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:px-5 rounded-2xl bg-gradient-to-r from-[#1E1938]/90 via-[#251E46]/90 to-[#1D243C]/90 border border-white/15 hover:border-[#FF7602]/60 shadow-md hover:shadow-[0_0_24px_rgba(255,118,2,0.18)] transition-all duration-200">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF7602] to-[#FF69A4] flex items-center justify-center text-white text-base shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FF7602]/20 text-[#FF9419] border border-[#FF7602]/35 font-semibold">Also Play</span>
+                            <h2 class="font-display text-sm font-bold text-white group-hover:text-[#FF9419] transition-colors">
+                                Ultimate Character Duck Race — Championship Edition
+                            </h2>
+                        </div>
+                        <p class="text-[11px] text-slate-300 mt-0.5">Race custom characters in a high-energy championship duck race!</p>
+                    </div>
+                </div>
+                <span class="game-btn game-btn-orange px-3.5 py-1.5 text-xs flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                    <span>Play Now</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </span>
+            </a>
 
-            <div class="flex items-center gap-5">
-                <button id="footerDonateBtn" type="button" class="font-semibold text-[#FF9419] hover:text-white transition">
-                    Support Project
-                </button>
-                <a href="https://github.com/ryuchi311/game-of-wheel" target="_blank" rel="noopener noreferrer" class="text-slate-300 hover:text-white transition flex items-center gap-1.5">
-                    <i class="fa-brands fa-github"></i>
-                    <span>GitHub</span>
-                </a>
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+                <div class="flex items-center gap-2.5">
+                    <img src="/images/logo-icon.png" alt="Game of Wheel Logo" class="w-5 h-5 rounded object-cover">
+                    <span class="font-bold text-slate-200">Game of Wheel</span>
+                    <span>·</span>
+                    <span>Physics Prize &amp; Decision Spinner</span>
+                </div>
+
+                <div class="flex items-center gap-5">
+                    <button id="footerDonateBtn" type="button" class="font-semibold text-[#FF9419] hover:text-white transition">
+                        Support Project
+                    </button>
+                    <a href="https://github.com/ryuchi311/game-of-wheel" target="_blank" rel="noopener noreferrer" class="text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                        <i class="fa-brands fa-github"></i>
+                        <span>GitHub</span>
+                    </a>
+                </div>
             </div>
         </div>
     </footer>
@@ -663,6 +697,115 @@
             </div>
         </div>
     </div>
+
+    <!-- Live QR Host Game Modal -->
+    <div id="hostQrModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-[#0B0914]/85 backdrop-blur-md overflow-y-auto">
+        <div class="game-clipboard-card animate-modal-pop max-w-2xl w-full relative my-auto">
+            <!-- Close Button -->
+            <button id="closeHostQrModalBtn" aria-label="Close Host QR Modal" class="game-btn game-btn-slate game-circle-btn absolute top-4 right-4 w-8 h-8 flex items-center justify-center z-20">
+                <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+
+            <div class="game-clipboard-inner p-6 sm:p-7">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5 pr-8">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-ping"></span>
+                            <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-[#4ADE80]">Live Host Lobby</span>
+                        </div>
+                        <h3 class="font-display text-lg sm:text-xl font-extrabold text-white mt-0.5">Scan QR Code to Join the Wheel</h3>
+                    </div>
+                    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#18152C] border border-white/20 self-start sm:self-auto">
+                        <span class="text-[10px] font-mono uppercase text-slate-400">Room Code</span>
+                        <span id="hostRoomCodeDisplay" class="font-mono text-base font-extrabold tracking-widest text-[#FF9419]">------</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                    <!-- Left: Large Scannable QR Code Card -->
+                    <div class="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-2xl bg-[#18152C] border border-white/15 gap-3">
+                        <div id="hostQrCodeContainer" class="p-3 bg-white rounded-2xl shadow-xl flex items-center justify-center w-[210px] h-[210px]">
+                            <!-- Populated by QRCode.js -->
+                        </div>
+                        <p class="text-[11px] text-slate-300 text-center leading-relaxed">
+                            Participants scan with their phone camera to enter their name live.
+                        </p>
+                    </div>
+
+                    <!-- Right: Join URL, Room Controls & Live Participant Feed -->
+                    <div class="md:col-span-7 flex flex-col gap-3.5 text-left">
+                        <!-- Join Link & Copy -->
+                        <div class="flex flex-col gap-1">
+                            <label for="hostJoinUrlInput" class="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold">
+                                Participant Join Link (Editable Host URL)
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input
+                                    id="hostJoinUrlInput"
+                                    type="text"
+                                    class="flex-1 bg-[#121020] border border-white/20 focus:border-[#2B99F2] rounded-xl px-3 py-2 text-xs font-mono text-[#8BBBE0] focus:outline-none"
+                                >
+                                <button id="copyJoinUrlBtn" type="button" class="game-btn game-btn-blue px-3 py-2 text-xs flex items-center gap-1.5 shrink-0">
+                                    <i class="fa-regular fa-copy text-[11px]"></i>
+                                    <span>Copy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Clear Default Prizes Toggle & Anti-Cheat Room Actions -->
+                        <div class="flex flex-col gap-2.5 p-3 rounded-xl bg-[#18152C] border border-white/15">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-200 font-medium">
+                                    <input id="replaceWithParticipantsToggle" type="checkbox" checked class="w-3.5 h-3.5 rounded accent-[#22C55E] cursor-pointer">
+                                    <span>Clear default slices on 1st join</span>
+                                </label>
+                                <div class="flex items-center gap-1.5">
+                                    <button id="lockRoomToggleBtn" type="button" class="game-btn game-btn-slate px-2.5 py-1 text-[11px] flex items-center gap-1.5">
+                                        <i id="lockRoomIcon" class="fa-solid fa-lock-open text-[10px] text-[#4ADE80]"></i>
+                                        <span id="lockRoomText">Open</span>
+                                    </button>
+                                    <button id="newRoomBtn" type="button" class="game-btn game-btn-purple px-2.5 py-1 text-[11px] flex items-center gap-1.5" title="Generate a fresh room code and clear lobby">
+                                        <i class="fa-solid fa-rotate text-[10px]"></i>
+                                        <span>New Room</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer select-none text-xs text-[#4ADE80] font-semibold" title="Blocks multi-tab, incognito, and second browser entries from the same device/IP">
+                                    <input id="strictDeviceLockToggle" type="checkbox" checked class="w-3.5 h-3.5 rounded accent-[#22C55E] cursor-pointer">
+                                    <span><i class="fa-solid fa-shield-halved mr-1"></i>Strict 1-Entry Per Device &amp; Anti-Multi-Tab</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Live Joined Participants List -->
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-users text-[#FF9419]"></i>
+                                    <span>Joined Participants</span>
+                                </span>
+                                <span id="hostJoinedCountLabel" class="font-mono text-[11px] text-[#4ADE80]">0 joined</span>
+                            </div>
+                            <div id="hostParticipantsList" class="h-32 overflow-y-auto p-2.5 rounded-xl bg-[#121020] border border-white/10 flex flex-wrap content-start gap-1.5">
+                                <span class="text-xs text-slate-500 m-auto">Waiting for players to scan the QR code...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Corner QR Badge for Stage Mode -->
+    <button id="stageCornerQrWidget" type="button" class="hidden fixed bottom-5 right-5 z-40 p-3 rounded-2xl bg-[#18152C]/95 border-2 border-white/30 shadow-2xl flex-col items-center gap-1.5 hover:scale-105 transition cursor-pointer group" title="Click to enlarge QR Code">
+        <div class="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[#4ADE80]">
+            <span class="w-2 h-2 rounded-full bg-[#22C55E] animate-ping"></span>
+            <span>Scan to Join</span>
+        </div>
+        <div id="stageCornerQrCode" class="p-1.5 bg-white rounded-xl w-[112px] h-[112px] flex items-center justify-center"></div>
+        <span id="stageCornerRoomCode" class="font-mono text-xs font-extrabold tracking-widest text-[#FF9419]">------</span>
+    </button>
 
     <!-- Application Entry Module -->
     <script type="module" src="/js/app.js"></script>

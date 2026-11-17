@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Join Live Wheel — Game of Wheel</title>
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/css/styles.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        display: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="antialiased min-h-screen flex flex-col justify-between relative p-4 sm:p-6 select-none">
+
+    <!-- Ambient Stage Backdrop -->
+    <div class="bg-canvas" aria-hidden="true">
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+        <div class="bg-grid-overlay"></div>
+        <div class="bg-vignette"></div>
+    </div>
+
+    <!-- Top Brand Header -->
+    <header class="w-full max-w-md mx-auto flex items-center justify-between py-2">
+        <div class="flex items-center gap-2.5">
+            <img src="/images/logo-icon.png" alt="Game of Wheel" class="w-8 h-8 rounded-lg border border-white/20 shadow">
+            <div>
+                <h1 class="font-display text-sm font-extrabold text-white leading-none">Game of Wheel</h1>
+                <p class="text-[10px] text-slate-400 font-mono mt-0.5">LIVE PARTICIPANT PORTAL</p>
+            </div>
+        </div>
+        <div id="roomBadgePill" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-mono text-white">
+            <span class="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse"></span>
+            <span id="headerRoomCode">------</span>
+        </div>
+    </header>
+
+    <!-- Main Mobile Card -->
+    <main class="w-full max-w-md mx-auto my-auto py-4">
+        <div class="game-clipboard-card">
+            <div class="game-clipboard-inner p-6 sm:p-7 flex flex-col gap-5">
+
+                <!-- Step 1: Enter Room Code (if not in URL) & Name Form -->
+                <div id="joinFormSection" class="flex flex-col gap-4">
+                    <div class="text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF7602] to-[#FF69A4] mx-auto mb-3 flex items-center justify-center shadow-lg border-2 border-white/40">
+                            <i class="fa-solid fa-ticket text-2xl text-white"></i>
+                        </div>
+                        <h2 class="font-display text-xl font-extrabold text-white">Join the Live Wheel!</h2>
+                        <p class="text-xs text-slate-300 mt-1">Enter your name below. Anti-cheat is active: <strong>1 entry per participant/device</strong>.</p>
+                    </div>
+
+                    <form id="participantJoinForm" class="flex flex-col gap-3.5">
+                        <!-- Room Code Input (auto-filled when scanned via QR) -->
+                        <div id="roomCodeInputWrapper" class="flex flex-col gap-1">
+                            <label for="roomCodeInput" class="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold">Room Code</label>
+                            <input
+                                id="roomCodeInput"
+                                type="text"
+                                maxlength="8"
+                                placeholder="e.g. AB12CD"
+                                required
+                                class="w-full bg-[#1C1933] border border-white/25 focus:border-[#FF9419] rounded-xl px-4 py-3 text-center font-mono text-lg font-bold tracking-widest uppercase text-[#FF9419] placeholder-slate-500 focus:outline-none transition"
+                            >
+                        </div>
+
+                        <!-- Participant Name Input -->
+                        <div class="flex flex-col gap-1">
+                            <label for="participantNameInput" class="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold">Your Display Name</label>
+                            <input
+                                id="participantNameInput"
+                                type="text"
+                                maxlength="36"
+                                placeholder="Enter your name or nickname..."
+                                required
+                                autocomplete="name"
+                                class="w-full bg-[#1C1933] border border-white/25 focus:border-[#2B99F2] rounded-xl px-4 py-3.5 text-base font-bold text-white placeholder-slate-400 focus:outline-none transition"
+                            >
+                        </div>
+
+                        <!-- Error Notice -->
+                        <div id="joinErrorAlert" class="hidden px-3.5 py-2.5 rounded-xl bg-[#F43F5E]/20 border border-[#F43F5E]/50 text-rose-100 text-xs flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-[#F43F5E]"></i>
+                            <span id="joinErrorText">Could not join room.</span>
+                        </div>
+
+                        <button id="joinSubmitBtn" type="submit" class="spin-btn-3d w-full py-3.5 px-6 text-base font-extrabold tracking-wide flex items-center justify-center gap-2 mt-1">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Lock In My Name</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Step 2: Joined Live Waiting / Status Screen (Locked to 1 Entry) -->
+                <div id="joinedLobbySection" class="hidden flex-col items-center text-center gap-4">
+                    <div id="playerStatusIcon" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#22C55E] to-[#159947] flex items-center justify-center shadow-lg border-2 border-white">
+                        <i class="fa-solid fa-lock text-2xl text-white"></i>
+                    </div>
+
+                    <div>
+                        <span class="px-3 py-0.5 rounded-full bg-[#22C55E]/20 border border-[#22C55E]/40 text-[#4ADE80] text-[11px] font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-check text-[10px]"></i> Verified Single Entry
+                        </span>
+                        <h2 id="joinedPlayerName" class="font-display text-2xl sm:text-3xl font-extrabold text-white mt-2 break-words">
+                            Player
+                        </h2>
+                        <p id="joinedLockNotice" class="text-xs text-slate-300 mt-1">Your name is locked in on the host's wheel. Opening extra tabs will not add extra entries.</p>
+                    </div>
+
+                    <!-- Live Game Telemetry Box -->
+                    <div id="liveGameStatusBox" class="w-full p-4 rounded-2xl bg-[#18152C] border border-white/15 flex flex-col items-center gap-2">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                            <span id="livePulseDot" class="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-ping"></span>
+                            <span id="liveStatusTitle">Waiting for host to spin...</span>
+                        </div>
+                        <p id="liveParticipantCount" class="text-[11px] font-mono text-slate-400">1 participant in room</p>
+                    </div>
+
+                    <!-- Live Winner Announcement Banner (Appears when wheel lands) -->
+                    <div id="liveWinnerCard" class="hidden w-full p-4 rounded-2xl border-2 border-white/60 shadow-xl flex-col items-center gap-1.5" style="background: linear-gradient(135deg, #FF7602 0%, #FF69A4 100%);">
+                        <span id="liveWinnerLabel" class="text-[10px] font-mono font-bold uppercase tracking-widest text-white/90">
+                            🏆 Spin Winner
+                        </span>
+                        <h3 id="liveWinnerName" class="font-display text-2xl font-extrabold text-white break-words">
+                            Winner Name
+                        </h3>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-md mx-auto text-center py-2 text-[11px] text-slate-400">
+        Powered by <span class="text-slate-200 font-semibold">Game of Wheel</span> · Anti-Cheat Protected QR Sync
+    </footer>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const initialRoom = (params.get('room') || '').toUpperCase().trim();
+
+        const roomBadgePill = document.getElementById('roomBadgePill');
+        const headerRoomCode = document.getElementById('headerRoomCode');
+        const joinFormSection = document.getElementById('joinFormSection');
+        const joinedLobbySection = document.getElementById('joinedLobbySection');
+        const participantJoinForm = document.getElementById('participantJoinForm');
+        const roomCodeInputWrapper = document.getElementById('roomCodeInputWrapper');
+        const roomCodeInput = document.getElementById('roomCodeInput');
+        const participantNameInput = document.getElementById('participantNameInput');
+        const joinErrorAlert = document.getElementById('joinErrorAlert');
+        const joinErrorText = document.getElementById('joinErrorText');
+        const joinSubmitBtn = document.getElementById('joinSubmitBtn');
+
+        const joinedPlayerName = document.getElementById('joinedPlayerName');
+        const livePulseDot = document.getElementById('livePulseDot');
+        const liveStatusTitle = document.getElementById('liveStatusTitle');
+        const liveParticipantCount = document.getElementById('liveParticipantCount');
+        const liveWinnerCard = document.getElementById('liveWinnerCard');
+        const liveWinnerLabel = document.getElementById('liveWinnerLabel');
+        const liveWinnerName = document.getElementById('liveWinnerName');
+
+        let currentRoomCode = initialRoom;
+        let myName = localStorage.getItem('gow_participant_name') || '';
+        let myClientId = localStorage.getItem('gow_participant_cid');
+        if (!myClientId) {
+            myClientId = 'cid_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem('gow_participant_cid', myClientId);
+        }
+
+        // Hardware/Screen Fingerprint to detect multi-tab / incognito on same device
+        const deviceFp = [
+            window.screen.width,
+            window.screen.height,
+            window.devicePixelRatio || 1,
+            navigator.hardwareConcurrency || 0,
+            Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+        ].join('x');
+
+        // Cross-tab BroadcastChannel synchronization
+        const tabSyncChannel = (typeof BroadcastChannel !== 'undefined')
+            ? new BroadcastChannel('gow_anti_cheat_sync')
+            : null;
+
+        let eventSource = null;
+        let lastCelebratedWinnerId = null;
+
+        if (initialRoom) {
+            roomCodeInput.value = initialRoom;
+            roomCodeInputWrapper.classList.add('hidden');
+            roomBadgePill.classList.remove('hidden');
+            roomBadgePill.classList.add('inline-flex');
+            headerRoomCode.textContent = `ROOM ${initialRoom}`;
+        }
+
+        if (myName) {
+            participantNameInput.value = myName;
+        }
+
+        function showError(msg) {
+            joinErrorText.textContent = msg;
+            joinErrorAlert.classList.remove('hidden');
+        }
+
+        function hideError() {
+            joinErrorAlert.classList.add('hidden');
+        }
+
+        function switchToLockedLobby(code, registeredName) {
+            currentRoomCode = code;
+            myName = registeredName;
+            localStorage.setItem('gow_participant_name', myName);
+            localStorage.setItem(`gow_joined_room_${code}`, myName);
+
+            roomBadgePill.classList.remove('hidden');
+            roomBadgePill.classList.add('inline-flex');
+            headerRoomCode.textContent = `ROOM ${code}`;
+
+            joinedPlayerName.textContent = myName;
+            joinFormSection.classList.add('hidden');
+            joinedLobbySection.classList.remove('hidden');
+            joinedLobbySection.classList.add('flex');
+
+            connectRoomEvents(code);
+        }
+
+        // Listen for other tabs joining the same room and lock this tab immediately
+        if (tabSyncChannel) {
+            tabSyncChannel.onmessage = (event) => {
+                const msg = event.data;
+                if (msg && msg.type === 'LOCKED_JOIN' && msg.roomCode === (currentRoomCode || roomCodeInput.value.trim().toUpperCase())) {
+                    switchToLockedLobby(msg.roomCode, msg.name);
+                }
+            };
+        }
+
+        window.addEventListener('storage', (e) => {
+            const targetRoom = currentRoomCode || roomCodeInput.value.trim().toUpperCase();
+            if (targetRoom && e.key === `gow_joined_room_${targetRoom}` && e.newValue) {
+                switchToLockedLobby(targetRoom, e.newValue);
+            }
+        });
+
+        function connectRoomEvents(code) {
+            if (eventSource) {
+                eventSource.close();
+            }
+            eventSource = new EventSource(`/api/rooms/${encodeURIComponent(code)}/events`);
+
+            const handleRoomUpdate = (room) => {
+                if (!room) return;
+                const count = Array.isArray(room.participants) ? room.participants.length : 0;
+                liveParticipantCount.textContent = `${count} ${count === 1 ? 'participant' : 'participants'} joined`;
+
+                if (room.status === 'spinning') {
+                    livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF9419] animate-ping';
+                    liveStatusTitle.textContent = '🎡 The wheel is spinning right now!';
+                    liveWinnerCard.classList.add('hidden');
+                    liveWinnerCard.classList.remove('flex');
+                } else if (room.status === 'winner' && room.lastWinner) {
+                    const winnerText = room.lastWinner.text || '';
+                    const isMe = winnerText.toLowerCase() === myName.toLowerCase();
+                    livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#FFD43B]';
+                    liveStatusTitle.textContent = isMe ? '🎉 YOU WON THE SPIN!' : `Winner selected: ${winnerText}`;
+
+                    liveWinnerCard.classList.remove('hidden');
+                    liveWinnerCard.classList.add('flex');
+                    liveWinnerLabel.textContent = isMe ? '🎉 CONGRATULATIONS — YOU WON!' : '🏆 Spin Winner';
+                    liveWinnerName.textContent = winnerText;
+
+                    const winKey = `${room.lastWinner.spinNumber || ''}_${winnerText}`;
+                    if (winKey !== lastCelebratedWinnerId) {
+                        lastCelebratedWinnerId = winKey;
+                        if (typeof confetti === 'function') {
+                            confetti({
+                                particleCount: isMe ? 110 : 45,
+                                spread: 80,
+                                origin: { y: 0.6 }
+                            });
+                        }
+                    }
+                } else {
+                    livePulseDot.className = 'w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-ping';
+                    liveStatusTitle.textContent = 'Waiting for host to spin...';
+                }
+            };
+
+            eventSource.addEventListener('room_state', (e) => {
+                try { handleRoomUpdate(JSON.parse(e.data)); } catch (err) {}
+            });
+            eventSource.addEventListener('participant_joined', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleRoomUpdate(data.room);
+                } catch (err) {}
+            });
+            eventSource.addEventListener('participant_updated', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleRoomUpdate(data.room);
+                } catch (err) {}
+            });
+        }
+
+        // Check on page load if this browser/device/cookie already joined this room (blocks multi-tab & refresh re-entry)
+        async function checkAlreadyJoinedOnLoad() {
+            if (!initialRoom) return;
+            try {
+                const res = await fetch(
+                    `/api/rooms/${encodeURIComponent(initialRoom)}?cid=${encodeURIComponent(myClientId)}&fp=${encodeURIComponent(deviceFp)}`
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.myParticipant && data.myParticipant.name) {
+                    switchToLockedLobby(initialRoom, data.myParticipant.name);
+                }
+            } catch (e) {}
+        }
+
+        checkAlreadyJoinedOnLoad();
+
+        participantJoinForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const code = roomCodeInput.value.trim().toUpperCase();
+            const name = participantNameInput.value.trim();
+            if (!code || !name) {
+                showError('Please enter both a Room Code and your name.');
+                return;
+            }
+
+            joinSubmitBtn.disabled = true;
+            try {
+                const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, clientId: myClientId, deviceFp })
+                });
+                const data = await res.json();
+
+                // If server detected this device/tab already joined under an existing name, lock into that existing entry!
+                if (res.status === 409 && data.alreadyJoined && data.participant) {
+                    switchToLockedLobby(code, data.participant.name);
+                    return;
+                }
+
+                if (!res.ok) {
+                    showError(data.error || 'Unable to join room.');
+                    joinSubmitBtn.disabled = false;
+                    return;
+                }
+
+                const finalName = data.participant.name;
+                if (tabSyncChannel) {
+                    tabSyncChannel.postMessage({ type: 'LOCKED_JOIN', roomCode: code, name: finalName });
+                }
+                switchToLockedLobby(code, finalName);
+            } catch (err) {
+                showError('Network error — make sure you are connected to the same Wi-Fi or host server.');
+            } finally {
+                joinSubmitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
