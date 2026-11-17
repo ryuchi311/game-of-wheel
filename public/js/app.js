@@ -480,7 +480,6 @@ function closeWinnerModal() {
     winnerModal.classList.add('hidden');
     winnerModal.classList.remove('flex');
     state.isIdleMoving = true;
-    notifyLiveRoomState({ status: 'waiting' });
 }
 
 /**
@@ -1911,15 +1910,13 @@ async function notifyLiveRoomState(payload) {
     updateLiveHostUI();
     broadcastPeerState('room_state');
 
-    if (liveRoom.mode === 'api') {
-        try {
-            await fetch(`/api/rooms/${encodeURIComponent(liveRoom.code)}/state`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-        } catch (e) {}
-    }
+    try {
+        await fetch(`/api/rooms/${encodeURIComponent(liveRoom.code)}/state`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    } catch (e) {}
 }
 
 async function openHostQrModal() {
