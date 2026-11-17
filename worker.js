@@ -303,7 +303,15 @@ export default {
             doUrl.searchParams.set('code', code);
             if (action) doUrl.searchParams.set('action', action);
 
-            return stub.fetch(new Request(doUrl.toString(), request));
+            const init = {
+                method: request.method,
+                headers: request.headers
+            };
+            if (request.method !== 'GET' && request.method !== 'HEAD') {
+                init.body = await request.text();
+            }
+
+            return stub.fetch(new Request(doUrl.toString(), init));
         }
 
         // 5. Serve static assets from ./public
