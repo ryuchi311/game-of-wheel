@@ -9,7 +9,6 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "build": "echo \"Static assets ready in ./public\"",
     "run:bat": "run.bat"
   },
   "keywords": [
