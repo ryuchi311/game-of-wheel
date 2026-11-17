@@ -85,6 +85,8 @@ export class WheelRoomDO {
             participants: (room.participants || []).map(p => ({
                 id: p.id,
                 name: p.name,
+                email: p.email || '',
+                phone: p.phone || '',
                 joinedAt: p.joinedAt
             })),
             status: room.status || 'waiting',
@@ -152,6 +154,8 @@ export class WheelRoomDO {
                 .replace(/\s+/g, ' ')
                 .slice(0, 40);
             const clientId = String(body.clientId || '').trim().slice(0, 64);
+            const email = String(body.email || '').trim().slice(0, 80);
+            const phone = String(body.phone || '').trim().slice(0, 24);
             const normalizedNewName = normalizeNameForAntiCheat(rawName);
 
             if (!rawName || normalizedNewName.length < 1) {
@@ -186,6 +190,8 @@ export class WheelRoomDO {
                 id: 'p_' + Math.random().toString(36).slice(2, 10),
                 name: rawName,
                 normalizedName: normalizedNewName,
+                email,
+                phone,
                 clientId: clientId || null,
                 joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
             };

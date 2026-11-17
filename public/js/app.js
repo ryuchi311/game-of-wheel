@@ -409,9 +409,14 @@ function handleSpinWinner(winnerIdx) {
     const timestamp = nowDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const dateStr = nowDate.toLocaleDateString();
     const nextSpinNum = state.history.length > 0 ? (Math.max(...state.history.map(h => h.spinNumber || 0)) + 1) : 1;
+    const matchedParticipant = Array.isArray(liveRoom.participants)
+        ? liveRoom.participants.find(p => p.name.trim().toLowerCase() === winner.text.trim().toLowerCase())
+        : null;
     state.history.unshift({
         id: Date.now(),
         text: winner.text,
+        email: matchedParticipant ? (matchedParticipant.email || '') : '',
+        phone: matchedParticipant ? (matchedParticipant.phone || '') : '',
         color: winner.color,
         time: timestamp,
         date: dateStr,
@@ -1152,12 +1157,14 @@ downloadHistoryBtn.addEventListener('click', () => {
         showValidationNotice('No winners to export yet!');
         return;
     }
-    const csvRows = ['Spin Number,Winner,Date,Time'];
+    const csvRows = ['Spin Number,Winner,Email,Phone Number,Date,Time'];
     state.history.slice().reverse().forEach((h) => {
         const safeText = `"${String(h.text).replace(/"/g, '""')}"`;
-        csvRows.push(`${h.spinNumber},${safeText},${h.date || ''},${h.time}`);
+        const safeEmail = `"${String(h.email || '').replace(/"/g, '""')}"`;
+        const safePhone = `"${String(h.phone || '').replace(/"/g, '""')}"`;
+        csvRows.push(`${h.spinNumber},${safeText},${safeEmail},${safePhone},${h.date || ''},${h.time}`);
     });
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

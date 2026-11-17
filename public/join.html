@@ -112,6 +112,37 @@
                             >
                         </div>
 
+                        <!-- Optional Contact Info for Reward Delivery -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                            <div class="flex flex-col gap-1">
+                                <label for="participantEmailInput" class="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                                    Email <span class="text-slate-500 lowercase">(optional)</span>
+                                </label>
+                                <input
+                                    id="participantEmailInput"
+                                    type="email"
+                                    maxlength="80"
+                                    placeholder="you@email.com"
+                                    autocomplete="email"
+                                    class="w-full bg-[#1C1933] border border-white/20 focus:border-[#2B99F2] rounded-xl px-3.5 py-2.5 text-xs font-medium text-white placeholder-slate-500 focus:outline-none transition"
+                                >
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label for="participantPhoneInput" class="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                                    Phone / Number <span class="text-slate-500 lowercase">(optional)</span>
+                                </label>
+                                <input
+                                    id="participantPhoneInput"
+                                    type="tel"
+                                    maxlength="24"
+                                    placeholder="+63 / 09xx..."
+                                    autocomplete="tel"
+                                    class="w-full bg-[#1C1933] border border-white/20 focus:border-[#2B99F2] rounded-xl px-3.5 py-2.5 text-xs font-medium text-white placeholder-slate-500 focus:outline-none transition"
+                                >
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 -mt-1">Add email or number if you want to be contacted to claim your reward.</p>
+
                         <!-- Error Notice -->
                         <div id="joinErrorAlert" class="hidden px-3.5 py-2.5 rounded-xl bg-[#F43F5E]/20 border border-[#F43F5E]/50 text-rose-100 text-xs flex items-center gap-2">
                             <i class="fa-solid fa-shield-halved text-[#F43F5E]"></i>
@@ -189,6 +220,8 @@
         const roomCodeInputWrapper = document.getElementById('roomCodeInputWrapper');
         const roomCodeInput = document.getElementById('roomCodeInput');
         const participantNameInput = document.getElementById('participantNameInput');
+        const participantEmailInput = document.getElementById('participantEmailInput');
+        const participantPhoneInput = document.getElementById('participantPhoneInput');
         const joinErrorAlert = document.getElementById('joinErrorAlert');
         const joinErrorText = document.getElementById('joinErrorText');
         const joinSubmitBtn = document.getElementById('joinSubmitBtn');
@@ -536,6 +569,8 @@
 
             const code = roomCodeInput.value.trim().toUpperCase();
             const name = participantNameInput.value.trim();
+            const email = participantEmailInput ? participantEmailInput.value.trim().slice(0, 80) : '';
+            const phone = participantPhoneInput ? participantPhoneInput.value.trim().slice(0, 24) : '';
             if (!code || !name) {
                 showError('Please enter both a Room Code and your name.');
                 return;
@@ -559,7 +594,7 @@
                     const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/join`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, clientId: myClientId })
+                        body: JSON.stringify({ name, email, phone, clientId: myClientId })
                     });
                     const contentType = res.headers.get('content-type') || '';
                     if (contentType.includes('application/json')) {
@@ -624,6 +659,8 @@
                     conn.send({
                         type: 'join_request',
                         name,
+                        email,
+                        phone,
                         clientId: myClientId,
                         deviceFp
                     });
