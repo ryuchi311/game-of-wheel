@@ -23,6 +23,10 @@ const spinDurationRange = document.getElementById('spinDurationRange');
 const spinDurationInput = document.getElementById('spinDurationInput');
 const spinTimePresetBtns = document.querySelectorAll('.spin-time-preset');
 const eliminateWinnerToggle = document.getElementById('eliminateWinnerToggle');
+const lastManStandingToggle = document.getElementById('lastManStandingToggle');
+const modalWinnerCrestIcon = document.getElementById('modalWinnerCrestIcon');
+const modalWinnerBadge = document.getElementById('modalWinnerBadge');
+const modalWinnerBadgeText = document.getElementById('modalWinnerBadgeText');
 
 // Drama & Atmosphere Checkboxes & Collapse Controls
 const modeDramatic = document.getElementById('modeDramatic');
@@ -427,8 +431,25 @@ function handleSpinWinner(winnerIdx) {
     saveStateToStorage();
     renderHistoryList();
 
-    // Automatically eliminate winner if checkbox is enabled (and >2 options exist)
-    if (eliminateWinnerToggle.checked && state.options.length > 2) {
+    const isLastManStanding = lastManStandingToggle && lastManStandingToggle.checked;
+    let displayEntry = winner;
+    let lmsStatus = 'normal'; // 'normal' | 'eliminated' | 'survivor'
+
+    if (isLastManStanding && state.options.length > 2) {
+        state.options.splice(winnerIdx, 1);
+        saveStateToStorage();
+        renderOptionsList();
+        drawWheel();
+        lmsStatus = 'eliminated';
+    } else if (isLastManStanding && state.options.length === 2) {
+        state.options.splice(winnerIdx, 1);
+        saveStateToStorage();
+        renderOptionsList();
+        drawWheel();
+        displayEntry = state.options[0];
+        lmsStatus = 'survivor';
+    } else if (eliminateWinnerToggle.checked && state.options.length > 2) {
+        // Automatically eliminate winner if checkbox is enabled (and >2 options exist)
         state.options.splice(winnerIdx, 1);
         saveStateToStorage();
         renderOptionsList();
@@ -456,23 +477,47 @@ function handleSpinWinner(winnerIdx) {
         streakBadge += ` · ${randomQuote}`;
     }
 
-    // Populate & Show Winner Modal with automatic high-contrast text color & 3D depth
-    const isLightBanner = isLightHexColor(winner.color);
-    modalWinnerBanner.style.background = `linear-gradient(180deg, ${winner.color} 0%, ${winner.color}E6 100%)`;
-    modalWinnerBanner.style.borderColor = '#FFFFFF';
-    modalWinnerBanner.style.boxShadow = `0 6px 0 rgba(0, 0, 0, 0.35), 0 0 38px ${winner.color}99, inset 0 2px 0 rgba(255, 255, 255, 0.55)`;
-    if (modalAmbientGlow) {
-        modalAmbientGlow.style.backgroundColor = winner.color;
+    // Update modal crest & badge for Last Man Standing vs Normal mode
+    if (modalWinnerCrestIcon && modalWinnerBadgeText && modalWinnerBadge) {
+        if (lmsStatus === 'eliminated') {
+            modalWinnerCrestIcon.className = 'fa-solid fa-skull text-2xl';
+            modalWinnerBadgeText.textContent = 'Eliminated!';
+            modalWinnerBadge.className = 'relative z-10 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#F43F5E]/15 border border-[#F43F5E]/40 text-[#FB7185] text-[11px] font-mono font-bold uppercase tracking-widest mb-4 shadow-sm';
+        } else if (lmsStatus === 'survivor') {
+            modalWinnerCrestIcon.className = 'fa-solid fa-crown text-2xl';
+            modalWinnerBadgeText.textContent = 'Last Man Standing!';
+            modalWinnerBadge.className = 'relative z-10 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#22C55E]/15 border border-[#22C55E]/40 text-[#4ADE80] text-[11px] font-mono font-bold uppercase tracking-widest mb-4 shadow-sm';
+        } else {
+            modalWinnerCrestIcon.className = 'fa-solid fa-trophy text-2xl';
+            modalWinnerBadgeText.textContent = 'Selected Winner';
+            modalWinnerBadge.className = 'relative z-10 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FF9419]/15 border border-[#FF9419]/40 text-[#FFB800] text-[11px] font-mono font-bold uppercase tracking-widest mb-4 shadow-sm';
+        }
     }
-    modalWinnerText.textContent = winner.text;
+
+    // Populate & Show Winner Modal with automatic high-contrast text color & 3D depth
+    const isLightBanner = isLightHexColor(displayEntry.color);
+    modalWinnerBanner.style.background = `linear-gradient(180deg, ${displayEntry.color} 0%, ${displayEntry.color}E6 100%)`;
+    modalWinnerBanner.style.borderColor = '#FFFFFF';
+    modalWinnerBanner.style.boxShadow = `0 6px 0 rgba(0, 0, 0, 0.35), 0 0 38px ${displayEntry.color}99, inset 0 2px 0 rgba(255, 255, 255, 0.55)`;
+    if (modalAmbientGlow) {
+        modalAmbientGlow.style.backgroundColor = displayEntry.color;
+    }
+    modalWinnerText.textContent = displayEntry.text;
     modalWinnerText.style.color = isLightBanner ? '#0F172A' : '#FFFFFF';
     modalWinnerText.style.textShadow = isLightBanner
         ? '0 1px 0 rgba(255, 255, 255, 0.75)'
         : '0 3px 0 rgba(0, 0, 0, 0.38), 0 6px 14px rgba(0, 0, 0, 0.35)';
-    modalSpinStats.textContent = `Spin #${state.history[0].spinNumber} · ${timestamp}${streakBadge}`;
+
+    if (lmsStatus === 'eliminated') {
+        modalSpinStats.textContent = `Spin #${state.history[0].spinNumber} · ${state.options.length} remaining · ${timestamp}`;
+    } else if (lmsStatus === 'survivor') {
+        modalSpinStats.textContent = `Last Man Standing! · Eliminated: ${winner.text} · ${timestamp}`;
+    } else {
+        modalSpinStats.textContent = `Spin #${state.history[0].spinNumber} · ${timestamp}${streakBadge}`;
+    }
     
-    // Disable "Remove Option" button in modal if already auto-removed or <= 2 options left
-    if (eliminateWinnerToggle.checked || state.options.length <= 2) {
+    // Disable "Remove Option" button in modal if already auto-removed, LMS mode, or <= 2 options left
+    if (isLastManStanding || eliminateWinnerToggle.checked || state.options.length <= 2) {
         modalRemoveWinnerBtn.classList.add('hidden');
     } else {
         modalRemoveWinnerBtn.classList.remove('hidden');
